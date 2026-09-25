@@ -115,6 +115,9 @@ flutter_icons:
     background_color: "#ffffff"
     theme_color: "#5f85c2"
 
+dependency_overrides:
+  value_layout_builder: ^0.5.0
+
 dev_dependencies:
   drift_dev: ^2.14.0
   build_runner: ^2.4.7

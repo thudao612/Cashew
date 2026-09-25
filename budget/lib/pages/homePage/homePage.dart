@@ -155,6 +155,50 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   SizedBox(height: 8),
                   HomeTransactions(
                       selectedSlidingSelector: selectedSlidingSelector),
+                  SizedBox(height: 12),
+                  Container(
+                    margin: const EdgeInsetsDirectional.symmetric(
+                      horizontal: 0,
+                    ),
+                    padding:
+                        const EdgeInsetsDirectional.fromSTEB(18, 18, 18, 18),
+                    decoration: BoxDecoration(
+                      color: getColor(context, "lightDarkAccentHeavyLight"),
+                      borderRadius: BorderRadiusDirectional.circular(18),
+                      boxShadow: boxShadowCheck(boxShadowGeneral(context)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Chi tiêu hôm nay",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: getColor(context, "black"),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          "350.000 ₫",
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            color: getColor(context, "black"),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "So với hôm qua: +12%",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   SizedBox(height: 7),
                   Center(
                     child: ViewAllTransactionsButton(),

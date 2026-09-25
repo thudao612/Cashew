@@ -2,10 +2,8 @@ import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/settings.dart';
-import 'package:budget/widgets/noResults.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/textWidgets.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:budget/colors.dart';
@@ -174,30 +172,24 @@ class _LineChartState extends State<_LineChart> with WidgetsBindingObserver {
               // print(titleMeta.max);
 
               String text = getWordedDateShort(
-                DateTime(
-                  currentDate.year,
-                  currentDate.month,
-                  currentDate.day - widget.maxPair.x.toInt() + value.round(),
-                ),
+                currentDate.justDay(
+                    dayOffset: -widget.maxPair.x.toInt() + value.round()),
                 showTodayTomorrow: false,
               );
 
               // String textBefore = getWordedDateShort(
-              //   DateTime(
-              //     currentDate.year,
-              //     currentDate.month,
-              //     currentDate.day -
-              //         widget.maxPair.x.toInt() +
-              //         valueBefore.round(),
-              //   ),
+              //   currentDate.justDay(
+              //       dayOffset: -widget.maxPair.x.toInt() + valueBefore.round()),
               //   showTodayTomorrow: false,
               // );
 
               return MediaQuery(
-                data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(1.0)),
                 child: Padding(
                   padding: const EdgeInsets.only(top: 8.0),
                   child: TextFont(
+                    maxLines: 1,
                     textAlign: TextAlign.center,
                     fontSize: 13,
                     text: text,
@@ -241,9 +233,13 @@ class _LineChartState extends State<_LineChart> with WidgetsBindingObserver {
               return Padding(
                 padding: const EdgeInsets.only(right: 8.0),
                 child: MediaQuery(
-                  data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(1.0)),
                   child: TextFont(
-                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.fade,
+                    maxLines: 1,
+                    softWrap: false,
+                    textAlign: TextAlign.end,
                     text: getWordedNumber(context,
                         Provider.of<AllWallets>(context, listen: false), value),
                     textColor: dynamicPastel(context, widget.color,
@@ -362,7 +358,7 @@ class _LineChartState extends State<_LineChart> with WidgetsBindingObserver {
           touchedValue = value.toInt();
         },
         touchTooltipData: LineTouchTooltipData(
-          tooltipBgColor: widget.color.withOpacity(0.7),
+          getTooltipColor: (_) => widget.color.withOpacity(0.7),
           tooltipRoundedRadius: 8,
           fitInsideVertically: true,
           fitInsideHorizontally: true,
@@ -376,13 +372,8 @@ class _LineChartState extends State<_LineChart> with WidgetsBindingObserver {
               }
               DateTime currentDate =
                   widget.endDate == null ? DateTime.now() : widget.endDate!;
-              DateTime tooltipDate = DateTime(
-                currentDate.year,
-                currentDate.month,
-                currentDate.day -
-                    widget.maxPair.x.toInt() +
-                    lineBarSpot.x.toInt(),
-              );
+              DateTime tooltipDate = currentDate.justDay(
+                  dayOffset: -widget.maxPair.x.toInt() + lineBarSpot.x.toInt());
               return LineTooltipItem(
                 getWordedDateShort(
                       tooltipDate,
@@ -540,6 +531,12 @@ class Pair {
   @override
   String toString() {
     return 'x: $x, y: $y, dateTime: $dateTime';
+  }
+
+  static Map<DateTime?, double> convertListToDateTimeMap(List<Pair> pairs) {
+    Map<DateTime?, double> resultMap = {};
+    for (Pair pair in pairs) resultMap[pair.dateTime] = pair.y;
+    return resultMap;
   }
 }
 

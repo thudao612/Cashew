@@ -13,8 +13,8 @@ import 'package:budget/widgets/animatedCircularProgress.dart';
 import 'package:budget/widgets/budgetContainer.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/categoryIcon.dart';
+import 'package:budget/widgets/editRowEntry.dart';
 import 'package:budget/widgets/fadeIn.dart';
-import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openContainerNavigation.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
@@ -46,10 +46,9 @@ class PastBudgetsPage extends StatelessWidget {
         stream: database.getBudget(budgetPk),
         builder: (context, snapshot) {
           if (snapshot.hasData) {
-            Color accentColor = HexColor(snapshot.data?.colour,
-                defaultColor: Theme.of(context).colorScheme.primary);
+            Color? accentColor = HexColor(snapshot.data?.colour);
             return CustomColorTheme(
-              accentColor: accentColor,
+              accentColor: snapshot.data?.colour == null ? null : accentColor,
               child: _PastBudgetsPageContent(
                 budget: snapshot.data!,
               ),
@@ -228,7 +227,7 @@ class __PastBudgetsPageContentState extends State<_PastBudgetsPageContent> {
                         selectedCategoryFks = [];
                         updateSetting([]);
                       });
-                      Navigator.pop(context);
+                      popRoute(context);
                     },
                     color: Theme.of(context).colorScheme.tertiaryContainer,
                     textColor:
@@ -241,7 +240,7 @@ class __PastBudgetsPageContentState extends State<_PastBudgetsPageContent> {
                     expandedLayout: true,
                     label: "done".tr(),
                     onTap: () {
-                      Navigator.pop(context);
+                      popRoute(context);
                     },
                   ),
                 ),
@@ -268,7 +267,7 @@ class __PastBudgetsPageContentState extends State<_PastBudgetsPageContent> {
             : appStateSettings["materialYou"]
                 ? dynamicPastel(context, Theme.of(context).colorScheme.primary,
                     amount: 0.92)
-                : Theme.of(context).canvasColor;
+                : Theme.of(context).colorScheme.background;
     double budgetAmount = budgetAmountToPrimaryCurrency(
         Provider.of<AllWallets>(context, listen: true), widget.budget);
 
@@ -297,23 +296,11 @@ class __PastBudgetsPageContentState extends State<_PastBudgetsPageContent> {
             openWatchCategoriesBottomSheet();
           },
           padding: EdgeInsetsDirectional.all(15 - 8),
-          icon: AnimatedContainer(
-            duration: Duration(milliseconds: 500),
-            decoration: BoxDecoration(
-              color: selectedCategoryFks.length > 0
-                  ? Theme.of(context).colorScheme.tertiary.withOpacity(0.1)
-                  : Colors.transparent,
-              borderRadius: BorderRadiusDirectional.circular(100),
-            ),
-            padding: EdgeInsetsDirectional.all(8),
-            child: Icon(
-              appStateSettings["outlinedIcons"]
-                  ? Icons.category_outlined
-                  : Icons.category_rounded,
-              color: selectedCategoryFks.length > 0
-                  ? Theme.of(context).colorScheme.tertiary
-                  : Theme.of(context).colorScheme.onSecondaryContainer,
-            ),
+          icon: SelectedIconForIconButton(
+            iconData: appStateSettings["outlinedIcons"]
+                ? Icons.category_outlined
+                : Icons.category_rounded,
+            isSelected: selectedCategoryFks.length > 0,
           ),
         ),
         IconButton(
@@ -818,18 +805,6 @@ class _PastBudgetContainerListState extends State<PastBudgetContainerList> {
                         child: AnimatedContainer(
                           duration: Duration(milliseconds: 200),
                           decoration: BoxDecoration(
-                            border: getPlatform() == PlatformOS.isIOS
-                                ? Border(
-                                    top: BorderSide(
-                                      color: getColor(context, "dividerColor"),
-                                      width: index == 0 ? 2 : 0,
-                                    ),
-                                    bottom: BorderSide(
-                                      color: getColor(context, "dividerColor"),
-                                      width: touchedBudgetIndex == null ? 2 : 0,
-                                    ),
-                                  )
-                                : null,
                             boxShadow: getPlatform() == PlatformOS.isIOS ||
                                     appStateSettings["materialYou"]
                                 ? []
@@ -853,15 +828,17 @@ class _PastBudgetContainerListState extends State<PastBudgetContainerList> {
                             expand: touchedBudgetIndex == null ||
                                 widget.amountLoaded - touchedBudgetIndex! - 1 ==
                                     index,
-                            child: PastBudgetContainer(
-                              budget: widget.budget,
-                              smallBudgetContainer: true,
-                              showTodayForSmallBudget:
-                                  (index == 0 ? true : false),
-                              dateForRange: datePast,
-                              isPastBudget: index == 0 ? false : true,
-                              isPastBudgetButCurrentPeriod: index == 0,
-                              backgroundColor: widget.backgroundColor,
+                            child: AddTopAndBottomBorderIfIOS(
+                              enabled: getPlatform() == PlatformOS.isIOS,
+                              child: PastBudgetContainer(
+                                budget: widget.budget,
+                                smallBudgetContainer: true,
+                                showTodayForSmallBudget:
+                                    (index == 0 ? true : false),
+                                dateForRange: datePast,
+                                backgroundColor: widget.backgroundColor,
+                                dateForRangeIndex: index,
+                              ),
                             ),
                           ),
                         ),
@@ -900,39 +877,27 @@ class _PastBudgetContainerListState extends State<PastBudgetContainerList> {
                               : 0.5,
                           child: Container(
                             decoration: BoxDecoration(
-                              border: getPlatform() == PlatformOS.isIOS
-                                  ? Border(
-                                      top: BorderSide(
-                                        color:
-                                            getColor(context, "dividerColor"),
-                                        width: index == 0 ? 2 : 0,
-                                      ),
-                                      bottom: BorderSide(
-                                        color:
-                                            getColor(context, "dividerColor"),
-                                        width:
-                                            touchedBudgetIndex == null ? 2 : 0,
-                                      ),
-                                    )
-                                  : null,
                               boxShadow: getPlatform() == PlatformOS.isIOS ||
                                       appStateSettings["materialYou"]
                                   ? []
                                   : boxShadowCheck(boxShadowGeneral(context)),
                             ),
-                            child: Padding(
-                              padding: getPlatform() == PlatformOS.isIOS
-                                  ? EdgeInsetsDirectional.zero
-                                  : EdgeInsetsDirectional.only(bottom: 13.0),
-                              child: PastBudgetContainer(
-                                budget: widget.budget,
-                                smallBudgetContainer: true,
-                                showTodayForSmallBudget:
-                                    (index == 0 ? true : false),
-                                dateForRange: datePast,
-                                isPastBudget: index == 0 ? false : true,
-                                isPastBudgetButCurrentPeriod: index == 0,
-                                backgroundColor: widget.backgroundColor,
+                            child: AddTopAndBottomBorderIfIOS(
+                              enabled: getPlatform() == PlatformOS.isIOS,
+                              child: Padding(
+                                padding: getPlatform() == PlatformOS.isIOS
+                                    ? EdgeInsetsDirectional.symmetric(
+                                        vertical: 13.0 / 2)
+                                    : EdgeInsetsDirectional.only(bottom: 13.0),
+                                child: PastBudgetContainer(
+                                  budget: widget.budget,
+                                  smallBudgetContainer: true,
+                                  showTodayForSmallBudget:
+                                      (index == 0 ? true : false),
+                                  dateForRange: datePast,
+                                  backgroundColor: widget.backgroundColor,
+                                  dateForRangeIndex: index,
+                                ),
                               ),
                             ),
                           ),
@@ -978,18 +943,16 @@ class PastBudgetContainer extends StatelessWidget {
     this.smallBudgetContainer = false,
     this.showTodayForSmallBudget = true,
     this.dateForRange,
-    this.isPastBudget = false,
-    this.isPastBudgetButCurrentPeriod = false,
     required this.backgroundColor,
+    required this.dateForRangeIndex,
   }) : super(key: key);
 
   final Budget budget;
   final bool smallBudgetContainer;
   final bool showTodayForSmallBudget;
   final DateTime? dateForRange;
-  final bool? isPastBudget;
-  final bool? isPastBudgetButCurrentPeriod;
   final Color backgroundColor;
+  final int dateForRangeIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -1099,7 +1062,7 @@ class PastBudgetContainer extends StatelessWidget {
                                                       : budgetAmount -
                                                           totalSpent),
                                               fontSize: 16,
-                                              textAlign: TextAlign.left,
+                                              textAlign: TextAlign.start,
                                               fontWeight: FontWeight.bold,
                                             );
                                           },
@@ -1118,7 +1081,7 @@ class PastBudgetContainer extends StatelessWidget {
                                                         context),
                                                     budgetAmount),
                                             fontSize: 12,
-                                            textAlign: TextAlign.left,
+                                            textAlign: TextAlign.start,
                                           ),
                                         ),
                                       ),
@@ -1147,7 +1110,7 @@ class PastBudgetContainer extends StatelessWidget {
                                                   ? totalSpent
                                                   : totalSpent - budgetAmount),
                                           fontSize: 16,
-                                          textAlign: TextAlign.left,
+                                          textAlign: TextAlign.start,
                                           fontWeight: FontWeight.bold,
                                         );
                                       },
@@ -1165,7 +1128,7 @@ class PastBudgetContainer extends StatelessWidget {
                                                     context),
                                                 budgetAmount),
                                         fontSize: 12,
-                                        textAlign: TextAlign.left,
+                                        textAlign: TextAlign.start,
                                       ),
                                     ),
                                   ),
@@ -1268,8 +1231,8 @@ class PastBudgetContainer extends StatelessWidget {
         openPage: BudgetPage(
           budgetPk: budget.budgetPk,
           dateForRange: dateForRangeLocal,
-          isPastBudget: isPastBudget,
-          isPastBudgetButCurrentPeriod: isPastBudgetButCurrentPeriod,
+          dateForRangeIndex: dateForRangeIndex,
+          openedFromHistory: true,
         ),
       ),
     );

@@ -698,6 +698,7 @@ class _SlidingSheetState extends State<SlidingSheet>
     };
     sheetController!._expand = () => snapToExtent(maxExtent);
     sheetController!._collapse = () => snapToExtent(minExtent);
+    sheetController!._reMeasure = () => reMeasure();
 
     if (!isDialog) {
       sheetController!._rebuild = () {
@@ -713,6 +714,16 @@ class _SlidingSheetState extends State<SlidingSheet>
         if (state.isShown) return snapToExtent(0.0, clamp: false);
       };
     }
+  }
+
+  Future<void> reMeasure() async {
+    if (!isLaidOut) return;
+
+    await controller.snapToExtent(
+      maxExtent,
+      this,
+      duration: const Duration(milliseconds: 800),
+    );
   }
 
   Future<void> snapToExtent(
@@ -1092,11 +1103,14 @@ class _SlidingSheetState extends State<SlidingSheet>
     );
   }
 
+  // When dismissing, use a max opacity to prevent flickering when keyboard is dismissed
+  double? maxOpacity;
+
   Widget _buildBackdrop() {
     return ValueListenableBuilder(
       valueListenable: extent!._currentExtent,
       builder: (context, dynamic value, child) {
-        final opacity = () {
+        double opacity = () {
           if (!widget.isDismissable &&
               !dismissUnderway &&
               didCompleteInitialRoute) {
@@ -1114,6 +1128,8 @@ class _SlidingSheetState extends State<SlidingSheet>
             return 0.0;
           }
         }();
+        if(dismissUnderway && maxOpacity==null) maxOpacity = opacity;
+        opacity = math.min(maxOpacity ?? 1, opacity);
 
         final backDrop = IgnorePointer(
           ignoring: opacity < 0.05,
@@ -1364,6 +1380,9 @@ class SheetController {
   /// Short-hand for calling `snapToExtent(minExtent)`.
   Future<void>? collapse() => _collapse?.call();
   Future<void> Function()? _collapse;
+
+  Future<void>? reMeasure() => _reMeasure?.call();
+  Future<void> Function()? _reMeasure;
 
   /// Fully expands the sheet.
   ///

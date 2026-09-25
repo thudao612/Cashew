@@ -1,6 +1,5 @@
 import 'package:animations/animations.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/breathingAnimation.dart';
@@ -20,6 +19,8 @@ enum AuthResult {
   errorBackupRestoreLaunch,
 }
 
+bool authAvailable = false;
+
 Future<AuthResult> checkBiometrics({
   bool checkAlways = false,
 }) async {
@@ -32,7 +33,7 @@ Future<AuthResult> checkBiometrics({
 
     final LocalAuthentication auth = LocalAuthentication();
     authAvailable =
-        await auth.canCheckBiometrics || await auth.isDeviceSupported();
+        await auth.isDeviceSupported() || await auth.canCheckBiometrics;
 
     final bool requireAuth =
         checkAlways || appStateSettings["requireAuth"] == true;
@@ -41,10 +42,10 @@ Future<AuthResult> checkBiometrics({
     await auth.stopAuthentication();
 
     if (authAvailable) {
-      bool biometricsOnly = (await auth.canCheckBiometrics);
+      //bool biometricsOnly = (await auth.canCheckBiometrics);
       return (await auth.authenticate(
         localizedReason: "verify-identity".tr(),
-        options: AuthenticationOptions(biometricOnly: biometricsOnly),
+        options: AuthenticationOptions(biometricOnly: false),
       ))
           ? AuthResult.authenticated
           : AuthResult.unauthenticated;
@@ -97,9 +98,8 @@ class _InitializeBiometricsState extends State<InitializeBiometrics> {
     // Since Initialize biometrics does not have access to Material navigator in the widget tree
     // because we want to keep the app fully locked
     Future.delayed(Duration(milliseconds: 500), () {
-      if (navigatorKey.currentContext == null) return;
       openPopup(
-        navigatorKey.currentContext!,
+        null,
         barrierDismissible: false,
         icon: appStateSettings["outlinedIcons"]
             ? Icons.warning_outlined
@@ -109,7 +109,7 @@ class _InitializeBiometricsState extends State<InitializeBiometrics> {
         onSubmitLabel: "ok".tr(),
         onSubmit: () {
           updateSettings("requireAuth", false, updateGlobalState: false);
-          Navigator.pop(navigatorKey.currentContext!);
+          popRoute(null);
         },
       );
     });

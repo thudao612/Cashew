@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/pages/addEmailTemplate.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/autoTransactionsPageEmail.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/struct/throttler.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
 import 'package:budget/widgets/importCSV.dart';
 import 'package:budget/widgets/navigationFramework.dart';
@@ -25,30 +24,31 @@ import 'package:budget/struct/commonDateFormats.dart';
 import 'package:budget/widgets/tableEntry.dart';
 import 'package:provider/provider.dart';
 
-class InitializeDeepLinks extends StatelessWidget {
-  const InitializeDeepLinks({required this.child, super.key});
+Throttler appLinksThrottler = Throttler(duration: Duration(milliseconds: 350));
+
+class InitializeAppLinks extends StatelessWidget {
+  const InitializeAppLinks({required this.child, super.key});
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    if (getPlatform(ignoreEmulation: true) == PlatformOS.isAndroid) {
-      return DeepLinks(child: child);
-    } else if (kIsWeb) {
-      return DeepLinksWeb(child: child);
+    if (kIsWeb) {
+      return AppLinksWeb(child: child);
+    } else {
+      return AppLinksNative(child: child);
     }
-    return child;
   }
 }
 
-class DeepLinksWeb extends StatefulWidget {
-  const DeepLinksWeb({required this.child, super.key});
+class AppLinksWeb extends StatefulWidget {
+  const AppLinksWeb({required this.child, super.key});
   final Widget child;
 
   @override
-  State<DeepLinksWeb> createState() => _DeepLinksWebState();
+  State<AppLinksWeb> createState() => _AppLinksWebState();
 }
 
-class _DeepLinksWebState extends State<DeepLinksWeb> {
+class _AppLinksWebState extends State<AppLinksWeb> {
   @override
   void initState() {
     super.initState();
@@ -64,22 +64,22 @@ class _DeepLinksWebState extends State<DeepLinksWeb> {
   }
 }
 
-class DeepLinks extends StatefulWidget {
-  const DeepLinks({required this.child, super.key});
+class AppLinksNative extends StatefulWidget {
+  const AppLinksNative({required this.child, super.key});
   final Widget child;
 
   @override
-  State<DeepLinks> createState() => _DeepLinksState();
+  State<AppLinksNative> createState() => _AppLinksNativeState();
 }
 
-class _DeepLinksState extends State<DeepLinks> {
+class _AppLinksNativeState extends State<AppLinksNative> {
   AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSubscription;
 
   @override
   void initState() {
     super.initState();
-    initDeepLinks();
+    initAppLinks();
   }
 
   @override
@@ -88,8 +88,8 @@ class _DeepLinksState extends State<DeepLinks> {
     super.dispose();
   }
 
-  Future<void> initDeepLinks() async {
-    final appLink = await _appLinks.getInitialAppLink();
+  Future<void> initAppLinks() async {
+    Uri? appLink = await _appLinks.getInitialLink();
     if (appLink != null) {
       // This delay may or may not be needed...
       // we need to make sure Material navigator is accessible by the context though!
@@ -236,19 +236,22 @@ Future processAddTransactionRouteFromParams(
   TransactionWallet? wallet = await getWalletFromParams(params);
   DateTime? dateCreated = await getDateTimeFromParams(params, context);
   double amount = getAmountFromParams(params);
-  await pushRoute(
-    context,
-    AddTransactionPage(
-      routesToPopAfterDelete: RoutesToPopAfterDelete.None,
-      selectedAmount: amount,
-      selectedCategory: mainAndSubCategory.main,
-      selectedSubCategory: mainAndSubCategory.sub,
-      selectedWallet: wallet,
-      selectedDate: dateCreated,
-      selectedTitle: params["title"],
-      selectedNotes: params["notes"],
-    ),
-  );
+  // Add a delay so the keyboard can focus
+  await Future.delayed(Duration(milliseconds: 50), () async {
+    await pushRoute(
+      context,
+      AddTransactionPage(
+        routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+        selectedAmount: amount,
+        selectedCategory: mainAndSubCategory.main,
+        selectedSubCategory: mainAndSubCategory.sub,
+        selectedWallet: wallet,
+        selectedDate: dateCreated,
+        selectedTitle: params["title"],
+        selectedNotes: params["notes"],
+      ),
+    );
+  });
 }
 
 Future processMessageToParse(
@@ -262,19 +265,19 @@ Future processMessageToParse(
     dateTime: await getDateTimeFromParams(params, context),
   );
   if (result == false) {
-    if (navigatorKey.currentContext != null)
-      pushRoute(
-        navigatorKey.currentContext!,
-        AddEmailTemplate(
-          messagesList: recentCapturedNotifications,
-        ),
-      );
+    pushRoute(
+      null,
+      AddEmailTemplate(
+        messagesList: recentCapturedNotifications,
+      ),
+    );
   }
 }
 
 Future executeAppLink(BuildContext? context, Uri uri,
     {Function(dynamic)? onDebug}) async {
   if (appStateSettings["hasOnboarded"] != true) return;
+  if (!appLinksThrottler.canProceed()) return;
 
   String endPoint = getApiEndpoint(uri);
   Map<String, String> params = parseAppLink(uri);

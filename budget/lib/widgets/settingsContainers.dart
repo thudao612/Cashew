@@ -5,7 +5,6 @@ import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/editRowEntry.dart';
 import 'package:budget/widgets/fadeIn.dart';
-import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openContainerNavigation.dart';
 import 'package:budget/widgets/tappable.dart';
@@ -177,6 +176,8 @@ class SettingsContainerOpenPage extends StatelessWidget {
     this.isWideOutlined,
     this.descriptionColor,
     this.afterWidget,
+    this.backgroundColor,
+    this.onTap,
   }) : super(key: key);
 
   final Widget openPage;
@@ -192,6 +193,8 @@ class SettingsContainerOpenPage extends StatelessWidget {
   final bool? isWideOutlined;
   final Color? descriptionColor;
   final Widget? afterWidget;
+  final Color? backgroundColor;
+  final Function(VoidCallback openContainer)? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +206,8 @@ class SettingsContainerOpenPage extends StatelessWidget {
       child: OpenContainerNavigation(
         onClosed: onClosed,
         onOpen: onOpen,
-        closedColor: Theme.of(context).canvasColor,
+        closedColor:
+            backgroundColor ?? Theme.of(context).colorScheme.background,
         borderRadius: isOutlined == true
             ? 10
             : getIsFullScreen(context)
@@ -216,33 +220,38 @@ class SettingsContainerOpenPage extends StatelessWidget {
             icon: icon,
             iconSize: iconSize,
             iconScale: iconScale,
-            onTap: () {
-              openContainer();
-              // Navigator.push(
-              //   context,
-              //   PageRouteBuilder(
-              //     transitionDuration: Duration(milliseconds: 500),
-              //     transitionsBuilder:
-              //         (context, animation, secondaryAnimation, child) {
-              //       return SharedAxisTransition(
-              //         animation: animation,
-              //         secondaryAnimation: secondaryAnimation,
-              //         transitionType: SharedAxisTransitionType.horizontal,
-              //         child: child,
-              //       );
-              //     },
-              //     pageBuilder: (context, animation, secondaryAnimation) {
-              //       return openPage;
-              //     },
-              //   ),
-              // );
-            },
+            backgroundColor: backgroundColor,
+            onTap: onTap != null
+                ? () => onTap!(openContainer)
+                : () {
+                    openContainer();
+                    // Navigator.push(
+                    //   context,
+                    //   PageRouteBuilder(
+                    //     transitionDuration: Duration(milliseconds: 500),
+                    //     transitionsBuilder:
+                    //         (context, animation, secondaryAnimation, child) {
+                    //       return SharedAxisTransition(
+                    //         animation: animation,
+                    //         secondaryAnimation: secondaryAnimation,
+                    //         transitionType: SharedAxisTransitionType.horizontal,
+                    //         child: child,
+                    //       );
+                    //     },
+                    //     pageBuilder: (context, animation, secondaryAnimation) {
+                    //       return openPage;
+                    //     },
+                    //   ),
+                    // );
+                  },
             afterWidget: isOutlined ?? false
                 ? SizedBox.shrink()
                 : Row(
                     children: [
                       if (afterWidget != null) afterWidget!,
-                      MoreChevron(color: colorScheme.secondary,size: isOutlined == true ? 20 : 30),
+                      MoreChevron(
+                          color: colorScheme.secondary,
+                          size: isOutlined == true ? 20 : 30),
                     ],
                   ),
             isOutlined: isOutlined,
@@ -258,7 +267,11 @@ class SettingsContainerOpenPage extends StatelessWidget {
 }
 
 class MoreChevron extends StatelessWidget {
-  const MoreChevron({super.key, required this.color, this.size,});
+  const MoreChevron({
+    super.key,
+    required this.color,
+    this.size,
+  });
   final Color color;
   final double? size;
   @override

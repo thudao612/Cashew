@@ -482,17 +482,18 @@ class _BudgetHistoryLineGraphState extends State<_BudgetHistoryLineGraph> {
             },
             touchTooltipData: LineTouchTooltipData(
               maxContentWidth: 170,
-              tooltipBgColor: widget.extraCategorySpots.keys.length <= 0 &&
-                      (widget.lineColors == null ||
-                          (widget.lineColors?.length ?? 0) <= 0)
-                  ? widget.color.withOpacity(0.7)
-                  : dynamicPastel(
-                      context,
-                      getColor(context, "white"),
-                      inverse: true,
-                      amountLight: 0.2,
-                      amountDark: 0.05,
-                    ).withOpacity(0.8),
+              getTooltipColor: (_) =>
+                  widget.extraCategorySpots.keys.length <= 0 &&
+                          (widget.lineColors == null ||
+                              (widget.lineColors?.length ?? 0) <= 0)
+                      ? widget.color.withOpacity(0.7)
+                      : dynamicPastel(
+                          context,
+                          getColor(context, "white"),
+                          inverse: true,
+                          amountLight: 0.2,
+                          amountDark: 0.05,
+                        ).withOpacity(0.8),
               tooltipRoundedRadius: 8,
               fitInsideVertically: true,
               fitInsideHorizontally: true,
@@ -550,8 +551,7 @@ class _BudgetHistoryLineGraphState extends State<_BudgetHistoryLineGraph> {
                         TextSpan(
                           text: startAndEndDateString,
                           style: TextStyle(
-                            color: getColor(context, "black")
-                                .withOpacity(lineBarsSpot.length > 1 ? 0.7 : 1),
+                            color: getColor(context, "black").withOpacity(0.8),
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                             fontFamilyFallback: ['Inter'],
@@ -564,9 +564,7 @@ class _BudgetHistoryLineGraphState extends State<_BudgetHistoryLineGraph> {
                         style: TextStyle(
                           color: lineBarSpot.bar.color ==
                                   lightenPastel(widget.color, amount: 0.3)
-                              ? widget.extraCategorySpots.keys.length <= 0
-                                  ? Colors.white.withOpacity(0.9)
-                                  : getColor(context, "black").withOpacity(0.7)
+                              ? getColor(context, "black").withOpacity(0.8)
                               : lineBarSpot.bar.color,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
@@ -616,8 +614,9 @@ class _BudgetHistoryLineGraphState extends State<_BudgetHistoryLineGraph> {
                       padding: const EdgeInsets.only(top: 7),
                       child: MediaQuery(
                         data: MediaQuery.of(context)
-                            .copyWith(textScaleFactor: 1.0),
+                            .copyWith(textScaler: TextScaler.linear(1.0)),
                         child: TextFont(
+                          maxLines: 1,
                           textAlign: TextAlign.center,
                           fontSize: 13,
                           text: widget.budget.reoccurrence ==
@@ -673,10 +672,13 @@ class _BudgetHistoryLineGraphState extends State<_BudgetHistoryLineGraph> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: MediaQuery(
-                      data:
-                          MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+                      data: MediaQuery.of(context)
+                          .copyWith(textScaler: TextScaler.linear(1.0)),
                       child: TextFont(
-                        textAlign: TextAlign.right,
+                        overflow: TextOverflow.fade,
+                        maxLines: 1,
+                        softWrap: false,
+                        textAlign: TextAlign.end,
                         text: getWordedNumber(
                             context, Provider.of<AllWallets>(context), value),
                         textColor: dynamicPastel(context, widget.color,

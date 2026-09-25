@@ -4,35 +4,31 @@ import 'package:budget/functions.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/aboutPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
-import 'package:budget/pages/autoTransactionsPageEmail.dart';
-import 'package:budget/pages/homePage/homePage.dart';
-import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
+import 'package:budget/struct/logging.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/button.dart';
-import 'package:budget/widgets/framework/popupFramework.dart';
+import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
+import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/notificationsSettings.dart';
-import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
 import 'package:budget/database/generatePreviewData.dart';
-import 'package:budget/widgets/radioItems.dart';
 import 'package:budget/widgets/ratingPopup.dart';
 import 'package:budget/widgets/settingsContainers.dart';
 import 'package:budget/widgets/textInput.dart';
 import 'package:budget/widgets/textWidgets.dart';
-import 'package:budget/widgets/util/deepLinks.dart';
+import 'package:budget/widgets/util/appLinks.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:in_app_review/in_app_review.dart';
+import 'package:flutter/services.dart' hide TextInput;
 import 'package:universal_html/html.dart' as html;
 import 'package:budget/struct/randomConstants.dart';
-import 'package:budget/widgets/tappable.dart';
-import '../widgets/sliderSelector.dart';
+import 'package:budget/widgets/sliderSelector.dart';
 
 class DebugPage extends StatelessWidget {
   const DebugPage({Key? key}) : super(key: key);
@@ -40,7 +36,24 @@ class DebugPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return PageFramework(
       dragDownToDismiss: true,
+      horizontalPaddingConstrained: true,
       title: "Debug Flags",
+      actions: [
+        CustomPopupMenuButton(
+          showButtons: true,
+          keepOutFirst: true,
+          items: [
+            DropdownItemMenu(
+              id: "share-logs",
+              label: "logs",
+              icon: Icons.list,
+              action: () {
+                pushRoute(context, LogPage());
+              },
+            ),
+          ],
+        ),
+      ],
       subtitle: TextFont(
         text: "Use at your own risk",
         textColor: getColor(context, "expenseAmount"),
@@ -68,7 +81,6 @@ class DebugPage extends StatelessWidget {
               : Icons.show_chart_rounded,
         ),
         SettingsContainerSwitch(
-          key: ValueKey(1),
           title: "Hide Zero Transactions",
           description: "On spending line graphs",
           onSwitched: (value) {
@@ -180,6 +192,17 @@ class DebugPage extends StatelessWidget {
               : Icons.live_help_rounded,
         ),
         SettingsContainerSwitch(
+          title: "Show extra info text".tr(),
+          onSwitched: (value) {
+            updateSettings("showExtraInfoText", value,
+                updateGlobalState: false, pagesNeedingRefresh: [3]);
+          },
+          initialValue: appStateSettings["showExtraInfoText"] == true,
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.info_outline
+              : Icons.info_rounded,
+        ),
+        SettingsContainerSwitch(
           title: "battery-saver".tr(),
           description: "battery-saver-description".tr(),
           onSwitched: (value) {
@@ -190,6 +213,43 @@ class DebugPage extends StatelessWidget {
           icon: appStateSettings["outlinedIcons"]
               ? Icons.battery_charging_full_outlined
               : Icons.battery_charging_full_rounded,
+        ),
+        SettingsContainerSwitch(
+          onSwitched: (value) {
+            updateSettings("savingHapticFeedback", value,
+                pagesNeedingRefresh: [], updateGlobalState: false);
+          },
+          initialValue: appStateSettings["savingHapticFeedback"] == true,
+          title: "Saving Haptic Feedback".tr(),
+          description: "When saving changes or adding, provide haptic feedback",
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.vibration_outlined
+              : Icons.vibration_rounded,
+        ),
+        SettingsContainerSwitch(
+          onSwitched: (value) {
+            updateSettings("closeNavigationHapticFeedback", value,
+                pagesNeedingRefresh: [], updateGlobalState: false);
+          },
+          initialValue:
+              appStateSettings["closeNavigationHapticFeedback"] == true,
+          title: "Close Navigation Haptic Feedback".tr(),
+          description: "When closing navigation, provide haptic feedback",
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.vibration_outlined
+              : Icons.vibration_rounded,
+        ),
+        SettingsContainerSwitch(
+          onSwitched: (value) {
+            updateSettings("tabNavigationHapticFeedback", value,
+                pagesNeedingRefresh: [], updateGlobalState: false);
+          },
+          initialValue: appStateSettings["tabNavigationHapticFeedback"] == true,
+          title: "Navigation Haptic Feedback".tr(),
+          description: "When changing tabs, provide haptic feedback",
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.vibration_outlined
+              : Icons.vibration_rounded,
         ),
         if (getPlatform(ignoreEmulation: true) == PlatformOS.isAndroid)
           SettingsContainerSwitch(
@@ -290,6 +350,29 @@ class DebugPage extends StatelessWidget {
         SettingsContainerSwitch(
           enableBorderRadius: true,
           onSwitched: (value) {
+            updateSettings("enableGoogleLoginFlyIn", value,
+                pagesNeedingRefresh: [], updateGlobalState: false);
+          },
+          initialValue: appStateSettings["enableGoogleLoginFlyIn"] == true,
+          title: "Google Login Flyin".tr(),
+          description:
+              "Show login with Google dropdown if not logged in and full screen",
+          icon: Icons.g_mobiledata,
+        ),
+        SettingsContainerSwitch(
+          onSwitched: (value) async {
+            updateSettings("forceAutoLogin", value, updateGlobalState: false);
+          },
+          title: "Force Auto Login",
+          description: "If sync is disabled or web app, force login popup.",
+          initialValue: appStateSettings["forceAutoLogin"] == true,
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.input_outlined
+              : Icons.input_rounded,
+        ),
+        SettingsContainerSwitch(
+          enableBorderRadius: true,
+          onSwitched: (value) {
             updateSettings("syncEveryChange", value,
                 pagesNeedingRefresh: [], updateGlobalState: false);
           },
@@ -301,8 +384,8 @@ class DebugPage extends StatelessWidget {
                 : "sync-every-change-description2".tr();
           },
           icon: appStateSettings["outlinedIcons"]
-              ? Icons.all_inbox_outlined
-              : Icons.all_inbox_rounded,
+              ? Icons.sync_outlined
+              : Icons.sync_rounded,
         ),
         SettingsContainerSwitch(
           title: "Emulate iOS",
@@ -374,10 +457,31 @@ class DebugPage extends StatelessWidget {
           icon: Icons.dark_mode,
         ),
         SettingsContainerSwitch(
-          title: "Show Transaction ID",
-          description: "On transactions page",
+          title: "Replace notification setting button with Bill Splitter",
+          description: "In the More page",
           onSwitched: (value) {
-            updateSettings("showTransactionPk", value, updateGlobalState: true);
+            updateSettings("showBillSplitterShortcut", value,
+                updateGlobalState: false, pagesNeedingRefresh: [3]);
+          },
+          initialValue: appStateSettings["showBillSplitterShortcut"] == true,
+          icon: Icons.summarize_rounded,
+        ),
+        SettingsContainerSwitch(
+          title: "Method Added",
+          description:
+              "Show the method added in the transactions page and filters",
+          onSwitched: (value) {
+            updateSettings("showMethodAdded", value, updateGlobalState: false);
+          },
+          initialValue: appStateSettings["showMethodAdded"] == true,
+          icon: Icons.bookmark_add,
+        ),
+        SettingsContainerSwitch(
+          title: "Show Transaction ID",
+          description: "Show the transaction ID in the transactions page",
+          onSwitched: (value) {
+            updateSettings("showTransactionPk", value,
+                updateGlobalState: false);
           },
           initialValue: appStateSettings["showTransactionPk"] == true,
           icon: Icons.password,
@@ -411,223 +515,291 @@ class DebugPage extends StatelessWidget {
             updateSettings("animationSpeed", value, updateGlobalState: true);
           },
         ),
-        Button(
-          label: "Redo migration (from db 37 above)",
-          onTap: () async {
-            await database.customStatement('PRAGMA user_version = 37');
-            if (kIsWeb) {
-              final html.Storage localStorage = html.window.localStorage;
-              localStorage["moor_db_version_db"] = "37";
-            }
-            restartAppPopup(context);
-          },
-        ),
-        SizedBox(height: 20),
-        Button(
-          label: "Fix transaction polarity",
-          onTap: () async {
-            await database.fixTransactionPolarity();
-          },
-        ),
-        SizedBox(height: 20),
-        Button(
-          label: "Vacuum/Clean DB",
-          onTap: () async {
-            try {
-              await database.customStatement('VACUUM');
-              openSnackbar(
-                SnackbarMessage(
-                  title: "Done",
-                  icon: Icons.time_to_leave,
-                  timeout: Duration(milliseconds: 1000),
-                ),
-              );
-            } catch (e) {
-              openSnackbar(
-                SnackbarMessage(
-                  title: e.toString(),
-                  icon: Icons.time_to_leave,
-                  timeout: Duration(milliseconds: 1000),
-                ),
-              );
-            }
-          },
-        ),
-        SizedBox(height: 20),
-        Button(
-          expandedLayout: true,
-          label:
-              "Clean database delete logs (WARNING: Make sure you sync with all other devices first!)",
-          onTap: () async {
-            await database.deleteAllDeleteLogs();
-          },
-        ),
-        SizedBox(height: 20),
-        Button(
-            label: "View Delete Logs",
-            onTap: () async {
-              pushRoute(
-                context,
-                PageFramework(
-                  title: "Delete logs",
-                  slivers: [
-                    StreamBuilder<List<DeleteLog>>(
-                      stream: database.watchAllDeleteLogs(),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasData) {
-                          return SliverPadding(
-                            padding: EdgeInsetsDirectional.symmetric(
-                                vertical: 7, horizontal: 13),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (BuildContext context, int index) {
-                                  DeleteLog deletelog = snapshot.data![index];
-                                  return Padding(
-                                    padding: const EdgeInsetsDirectional.only(
-                                        bottom: 4),
-                                    child: TextFont(
-                                      text: (index + 1).toString() +
-                                          ") " +
-                                          deletelog.type.toString() +
-                                          " " +
-                                          deletelog.dateTimeModified
-                                              .toString() +
-                                          ": " +
-                                          deletelog.deleteLogPk +
-                                          " for " +
-                                          deletelog.entryPk,
-                                      maxLines: 10,
-                                      fontSize: 12,
-                                    ),
-                                  );
-                                },
-                                childCount: snapshot.data?.length,
-                              ),
-                            ),
-                          );
-                        } else {
-                          return SliverToBoxAdapter();
-                        }
-                      },
+        Padding(
+          padding: const EdgeInsetsDirectional.symmetric(horizontal: 20),
+          child: Column(
+            children: [
+              Button(
+                label: "Redo migration (from db 37 above)",
+                onTap: () async {
+                  await database.customStatement('PRAGMA user_version = 37');
+                  if (kIsWeb) {
+                    final html.Storage localStorage = html.window.localStorage;
+                    localStorage["moor_db_version_db"] = "37";
+                  }
+                  restartAppPopup(context);
+                },
+              ),
+              SizedBox(height: 20),
+              Button(
+                label: "Fix transaction polarity",
+                onTap: () async {
+                  int result = await database.fixTransactionPolarity();
+                  openSnackbar(
+                    SnackbarMessage(
+                      title: "Done",
+                      description:
+                          "Applied to " + result.toString() + " transactions",
+                      icon: Icons.check,
                     ),
-                  ],
+                  );
+                },
+              ),
+              SizedBox(height: 20),
+              Button(
+                label: "Capitalize first letter in all transactions",
+                onTap: () async {
+                  int result = await database.capitalizeFirst();
+                  openSnackbar(
+                    SnackbarMessage(
+                      title: "Done",
+                      description:
+                          "Applied to " + result.toString() + " transactions",
+                      icon: Icons.check,
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 20),
+              Button(
+                label: "Vacuum/Clean DB",
+                onTap: () async {
+                  try {
+                    await database.customStatement('VACUUM');
+                    openSnackbar(
+                      SnackbarMessage(
+                        title: "Done",
+                        icon: Icons.check,
+                      ),
+                    );
+                  } catch (e) {
+                    openSnackbar(
+                      SnackbarMessage(
+                        title: e.toString(),
+                        icon: Icons.error,
+                      ),
+                    );
+                  }
+                },
+              ),
+              SizedBox(height: 20),
+              Button(
+                  label: "Force full sync",
+                  onTap: () async {
+                    sharedPreferences.setString(
+                        "dateOfLastSyncedWithClient", "{}");
+                    runAllCloudFunctions(context);
+                  }),
+              SizedBox(height: 20),
+              Button(
+                expandedLayout: true,
+                label:
+                    "Clean database delete logs (WARNING: Make sure you sync with all other devices first!)",
+                onTap: () async {
+                  int result = await database.deleteAllDeleteLogs();
+                  openSnackbar(
+                    SnackbarMessage(
+                      title: "Done",
+                      description: "Deleted " + result.toString() + " logs",
+                      icon: Icons.check,
+                    ),
+                  );
+                },
+              ),
+              SizedBox(height: 20),
+              Button(
+                  label: "View Delete Logs",
+                  onTap: () async {
+                    pushRoute(
+                      context,
+                      PageFramework(
+                        title: "Delete logs",
+                        slivers: [
+                          StreamBuilder<List<DeleteLog>>(
+                            stream: database.watchAllDeleteLogs(),
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData) {
+                                return SliverPadding(
+                                  padding: EdgeInsetsDirectional.symmetric(
+                                      vertical: 7, horizontal: 13),
+                                  sliver: SliverList(
+                                    delegate: SliverChildBuilderDelegate(
+                                      (BuildContext context, int index) {
+                                        DeleteLog deletelog =
+                                            snapshot.data![index];
+                                        return Padding(
+                                          padding:
+                                              const EdgeInsetsDirectional.only(
+                                                  bottom: 4),
+                                          child: TextFont(
+                                            text: (index + 1).toString() +
+                                                ") " +
+                                                deletelog.type.toString() +
+                                                " " +
+                                                deletelog.dateTimeModified
+                                                    .toString() +
+                                                ": " +
+                                                deletelog.deleteLogPk +
+                                                " for " +
+                                                deletelog.entryPk,
+                                            maxLines: 10,
+                                            fontSize: 12,
+                                          ),
+                                        );
+                                      },
+                                      childCount: snapshot.data?.length,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                return SliverToBoxAdapter();
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              SizedBox(height: 20),
+              Button(
+                  label: "Send Notification",
+                  onTap: () async {
+                    initializeNotificationsPlatform();
+                    scheduleDailyNotification(context, TimeOfDay.now(),
+                        scheduleNowDebug: true);
+                  }),
+              SizedBox(height: 20),
+              Button(
+                  label: "Force auto backup next launch",
+                  onTap: () async {
+                    updateSettings(
+                      "lastBackup",
+                      DateTime.now().subtract(Duration(days: 50)).toString(),
+                      updateGlobalState: false,
+                    );
+                  }),
+              SizedBox(height: 20),
+              DangerousDebugFlag(
+                child: Button(
+                  label: "Create preview data",
+                  onTap: () async {
+                    generatePreviewData();
+                  },
                 ),
-              );
-            }),
-        SizedBox(height: 20),
-        Button(
-            label: "Send Notification",
-            onTap: () async {
-              initializeNotificationsPlatform();
-              scheduleDailyNotification(context, TimeOfDay.now(),
-                  scheduleNowDebug: true);
-            }),
-        SizedBox(height: 20),
-        Button(
-            label: "Force auto backup next launch",
-            onTap: () async {
-              updateSettings(
-                "lastBackup",
-                DateTime.now().subtract(Duration(days: 50)).toString(),
-                updateGlobalState: false,
-              );
-            }),
-        SizedBox(height: 20),
-        DangerousDebugFlag(
-          child: Button(
-            label: "Create preview data",
-            onTap: () async {
-              generatePreviewData();
-            },
+              ),
+              SizedBox(height: 10),
+              DangerousDebugFlag(
+                child: Button(
+                  label: "Create random transactions",
+                  onTap: () async {
+                    List<TransactionCategory> categories =
+                        await database.getAllCategories();
+                    for (int i = 0; i < 10; i++) {
+                      await database.createOrUpdateTransaction(
+                        insert: true,
+                        Transaction(
+                          transactionPk: "-1",
+                          name: "Test" + randomDouble[i].toString(),
+                          amount: randomInt[i].toDouble(),
+                          note: "",
+                          categoryFk: categories[i].categoryPk,
+                          walletFk: "0",
+                          dateCreated: DateTime.now(),
+                          income: false,
+                          paid: true,
+                          skipPaid: false,
+                          methodAdded: MethodAdded.preview,
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+              SizedBox(height: 20),
+              Button(
+                  label: "Snackbar Test",
+                  onTap: () {
+                    openSnackbar(
+                      SnackbarMessage(
+                        title:
+                            '${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}.${DateTime.now().millisecond}',
+                        icon: Icons.time_to_leave,
+                        timeout: Duration(milliseconds: 1000),
+                      ),
+                    );
+                    openSnackbar(
+                      SnackbarMessage(
+                        title: "Test",
+                        description:
+                            '${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}.${DateTime.now().millisecond}',
+                        icon: Icons.abc,
+                        timeout: Duration(milliseconds: 1000),
+                        onTap: () {},
+                      ),
+                    );
+                    openSnackbar(
+                      SnackbarMessage(
+                        title:
+                            '${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}.${DateTime.now().millisecond}',
+                        timeout: Duration(milliseconds: 1000),
+                      ),
+                    );
+                    openSnackbar(
+                      SnackbarMessage(
+                        title:
+                            '${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}.${DateTime.now().millisecond}',
+                        description: "Some description",
+                        timeout: Duration(milliseconds: 7000),
+                      ),
+                    );
+                    openSnackbar(
+                      SnackbarMessage(
+                        title:
+                            'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation',
+                        timeout: Duration(milliseconds: 10000),
+                      ),
+                    );
+                  }),
+              SizedBox(height: 10),
+              HorizontalBreak(),
+              AppLinkTesting(),
+              HorizontalBreak(),
+              SizedBox(height: 10),
+              TextFont(
+                  maxLines: 10,
+                  text: kIsWeb
+                      ? html.window.navigator.userAgent.toString().toLowerCase()
+                      : ""),
+              SizedBox(height: 20),
+              Button(
+                label: "Haptic Light",
+                onTap: () => HapticFeedback.lightImpact(),
+              ),
+              Button(
+                label: "Haptic Medium",
+                onTap: () => HapticFeedback.mediumImpact(),
+              ),
+              Button(
+                label: "Haptic Heavy",
+                onTap: () => HapticFeedback.heavyImpact(),
+              ),
+              Button(
+                label: "Haptic Selection",
+                onTap: () => HapticFeedback.selectionClick(),
+              ),
+              Button(
+                label: "Haptic Vibrate",
+                onTap: () => HapticFeedback.vibrate(),
+              ),
+            ],
           ),
         ),
-        SizedBox(height: 10),
-        DangerousDebugFlag(
-          child: Button(
-            label: "Create random transactions",
-            onTap: () async {
-              List<TransactionCategory> categories =
-                  await database.getAllCategories();
-              for (int i = 0; i < 10; i++) {
-                await database.createOrUpdateTransaction(
-                  insert: true,
-                  Transaction(
-                    transactionPk: "-1",
-                    name: "Test" + randomDouble[i].toString(),
-                    amount: randomInt[i].toDouble(),
-                    note: "",
-                    categoryFk: categories[i].categoryPk,
-                    walletFk: "0",
-                    dateCreated: DateTime.now(),
-                    income: false,
-                    paid: true,
-                    skipPaid: false,
-                    methodAdded: MethodAdded.preview,
-                  ),
-                );
-              }
-            },
-          ),
-        ),
-        SizedBox(height: 20),
-        Button(
-            label: "Snackbar Test",
-            onTap: () {
-              openSnackbar(
-                SnackbarMessage(
-                  title:
-                      '${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}.${DateTime.now().millisecond}',
-                  icon: Icons.time_to_leave,
-                  timeout: Duration(milliseconds: 1000),
-                ),
-              );
-              openSnackbar(
-                SnackbarMessage(
-                  title: "Test",
-                  description:
-                      '${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}.${DateTime.now().millisecond}',
-                  icon: Icons.abc,
-                  timeout: Duration(milliseconds: 1000),
-                  onTap: () {},
-                ),
-              );
-              openSnackbar(
-                SnackbarMessage(
-                  title:
-                      '${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}.${DateTime.now().millisecond}',
-                  timeout: Duration(milliseconds: 1000),
-                ),
-              );
-              openSnackbar(
-                SnackbarMessage(
-                  title:
-                      '${DateTime.now().hour}:${DateTime.now().minute}:${DateTime.now().second}.${DateTime.now().millisecond}',
-                  description: "Some description",
-                  timeout: Duration(milliseconds: 7000),
-                ),
-              );
-              openSnackbar(
-                SnackbarMessage(
-                  title:
-                      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation',
-                  timeout: Duration(milliseconds: 10000),
-                ),
-              );
-            }),
-        SizedBox(height: 10),
-        HorizontalBreak(),
-        AppLinkTesting(),
-        HorizontalBreak(),
-        SizedBox(height: 10),
-        TextFont(
-            maxLines: 10,
-            text: kIsWeb
-                ? html.window.navigator.userAgent.toString().toLowerCase()
-                : ""),
         ColorBox(color: Theme.of(context).colorScheme.surface, name: "surface"),
         ColorBox(
             color: Theme.of(context).colorScheme.onSurface, name: "onSurface"),
-        ColorBox(color: Theme.of(context).canvasColor, name: "background"),
+        ColorBox(
+            color: Theme.of(context).colorScheme.background,
+            name: "background"),
         ColorBox(
             color: Theme.of(context).colorScheme.onBackground,
             name: "onBackground"),

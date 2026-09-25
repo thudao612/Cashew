@@ -20,6 +20,7 @@ import 'package:budget/pages/editWalletsPage.dart';
 import 'package:budget/pages/homePage/homePage.dart';
 import 'package:budget/pages/notificationsPage.dart';
 import 'package:budget/pages/objectivesListPage.dart';
+import 'package:budget/pages/onBoardingPage.dart';
 import 'package:budget/pages/premiumPage.dart';
 import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/pages/subscriptionsPage.dart';
@@ -74,6 +75,186 @@ import 'package:googleapis/drive/v3.dart';
 import 'package:provider/provider.dart';
 // import 'package:feature_discovery/feature_discovery.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// Handles onboarding too!
+class InitialPageRouteNavigator extends StatelessWidget {
+  const InitialPageRouteNavigator({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Navigator(
+      key: navigatorKey,
+      onGenerateRoute: (settings) => PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            AnimatedSwitcher(
+          duration: Duration(milliseconds: 1200),
+          switchInCurve: Curves.easeInOutCubic,
+          switchOutCurve: Curves.easeInOutCubic,
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            final inAnimation =
+                Tween<Offset>(begin: Offset(-1.0, 0.0), end: Offset(0.0, 0.0))
+                    .animate(animation);
+            final outAnimation =
+                Tween<Offset>(begin: Offset(1.0, 0.0), end: Offset(0.0, 0.0))
+                    .animate(animation);
+
+            if (child.key == ValueKey("Onboarding")) {
+              return ClipRect(
+                child: SlideTransition(
+                  position: inAnimation,
+                  child: child,
+                ),
+              );
+            } else {
+              return ClipRect(
+                child: SlideTransition(position: outAnimation, child: child),
+              );
+            }
+          },
+          child: appStateSettings["hasOnboarded"] != true
+              ? OnBoardingPage(key: ValueKey("Onboarding"))
+              : PageNavigationFrameworkSafeArea(
+                  child: PageNavigationFramework(
+                    key: pageNavigationFrameworkKey,
+                    widthSideNavigationBar: getWidthNavigationSidebar(context),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class PageNavigationFrameworkSafeArea extends StatelessWidget {
+  const PageNavigationFrameworkSafeArea({required this.child, super.key});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    double rightPaddingSafeArea = MediaQuery.paddingOf(context).right;
+    bool hasRightSafeArea = rightPaddingSafeArea > 0;
+    double leftPaddingSafeArea = MediaQuery.paddingOf(context).left;
+    bool hasLeftSafeArea =
+        leftPaddingSafeArea > 0 && getIsFullScreen(context) == false;
+
+    // Only enable left safe area if no navigation sidebar
+    return Stack(
+      children: [
+        hasRightSafeArea || hasLeftSafeArea
+            ? Container(
+                color: Theme.of(context).colorScheme.background,
+              )
+            : SizedBox.shrink(),
+        hasRightSafeArea || hasLeftSafeArea
+            ? Padding(
+                padding: EdgeInsets.only(
+                  right: hasRightSafeArea ? rightPaddingSafeArea : 0,
+                  left: hasLeftSafeArea ? leftPaddingSafeArea : 0,
+                ),
+                child: ClipRRect(
+                    borderRadius: BorderRadius.horizontal(
+                      right: hasRightSafeArea
+                          ? Radius.circular(
+                              getPlatform() == PlatformOS.isIOS ? 10 : 20)
+                          : Radius.circular(0),
+                      left: hasLeftSafeArea
+                          ? Radius.circular(
+                              getPlatform() == PlatformOS.isIOS ? 10 : 20)
+                          : Radius.circular(0),
+                    ),
+                    child: child),
+              )
+            : child,
+        hasRightSafeArea
+            ? Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  width: rightPaddingSafeArea,
+                  color: Theme.of(context).colorScheme.background,
+                ),
+              )
+            : SizedBox.shrink(),
+        hasLeftSafeArea
+            ? Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  width: leftPaddingSafeArea,
+                  color: Theme.of(context).colorScheme.background,
+                ),
+              )
+            : SizedBox.shrink(),
+        // Gradient fade to right overflow, disabled for now
+        // because many pages have full screen elements/banners etc
+        // hasRightSafeArea
+        //     ? Padding(
+        //         padding: EdgeInsets.only(
+        //             right: rightPaddingSafeArea),
+        //         child: Align(
+        //           alignment: Alignment.centerRight,
+        //           child: Container(
+        //             width: 12,
+        //             foregroundDecoration: BoxDecoration(
+        //               gradient: LinearGradient(
+        //                 colors: [
+        //                   Theme.of(context)
+        //                       .colorScheme.background
+        //                       .withOpacity(0.0),
+        //                   Theme.of(context).colorScheme.background,
+        //                 ],
+        //                 begin: Alignment.centerLeft,
+        //                 end: Alignment.centerRight,
+        //                 stops: [0.1, 1],
+        //               ),
+        //             ),
+        //           ),
+        //         ),
+        //       )
+        //     : SizedBox.shrink(),
+      ],
+    );
+  }
+}
+
+class HandleWillPopScope extends StatelessWidget {
+  const HandleWillPopScope({required this.child, super.key});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      child: child,
+      onWillPop: () async {
+        bool popResult = await maybePopRoute(navigatorKey.currentContext);
+        if (popResult == true) return false;
+
+        // Deselect selected transactions
+        int notEmpty = 0;
+        for (String key in globalSelectedID.value.keys) {
+          if (globalSelectedID.value[key]?.isNotEmpty == true) notEmpty++;
+          globalSelectedID.value[key] = [];
+        }
+        globalSelectedID.notifyListeners();
+
+        // Allow the back button to exit the app when on home
+        if (notEmpty <= 0) {
+          if (pageNavigationFrameworkKey.currentState?.currentPage == 0) {
+            return true;
+          } else {
+            // Allow back button deselect a selected category first on All Spending page
+            if (pageNavigationFrameworkKey.currentState?.currentPage == 7 &&
+                categoryIsSelectedOnAllSpending) {
+              return true;
+            }
+            pageNavigationFrameworkKey.currentState?.changePage(0);
+          }
+        }
+        return false;
+      },
+    );
+  }
+}
+
 class PageNavigationFramework extends StatefulWidget {
   const PageNavigationFramework(
       {Key? key, required this.widthSideNavigationBar})
@@ -109,6 +290,8 @@ GlobalKey<UpcomingOverdueTransactionsState>
 GlobalKey<CreditDebtTransactionsState> creditDebtTransactionsKey = GlobalKey();
 GlobalKey<ProductsState> purchasesStateKey = GlobalKey();
 GlobalKey<AccountsPageState> accountsPageStateKey = GlobalKey();
+GlobalKey<GoogleAccountLoginButtonState> settingsGoogleAccountLoginButtonKey =
+    GlobalKey();
 GlobalKey<NavigationSidebarState> sidebarStateKey = GlobalKey();
 GlobalKey<GlobalLoadingProgressState> loadingProgressKey = GlobalKey();
 GlobalKey<GlobalLoadingIndeterminateState> loadingIndeterminateKey =
@@ -116,6 +299,7 @@ GlobalKey<GlobalLoadingIndeterminateState> loadingIndeterminateKey =
 GlobalKey<GlobalSnackbarState> snackbarKey = GlobalKey();
 GlobalKey<RenderHomePageWidgetsState> renderHomePageWidgetsKey = GlobalKey();
 
+late bool entireAppLoaded;
 bool runningCloudFunctions = false;
 bool errorSigningInDuringCloud = false;
 Future<bool> runAllCloudFunctions(BuildContext context,
@@ -125,6 +309,7 @@ Future<bool> runAllCloudFunctions(BuildContext context,
   errorSigningInDuringCloud = false;
   try {
     loadingIndeterminateKey.currentState?.setVisibility(true);
+    await runForceSignIn(context);
     await syncData(context);
     if (appStateSettings["emailScanningPullToRefresh"] ||
         entireAppLoaded == false) {
@@ -168,8 +353,31 @@ Future<bool> runAllCloudFunctions(BuildContext context,
 }
 
 class PageNavigationFrameworkState extends State<PageNavigationFramework> {
-  late List<Widget> pages;
-  late List<Widget> pagesExtended;
+  final List<Widget> pages = [
+    HomePage(key: homePageStateKey), // 0
+    TransactionsListPage(key: transactionsListPageStateKey), //1
+    BudgetsListPage(key: budgetsListPageStateKey, enableBackButton: false), //2
+    MoreActionsPage(key: settingsPageStateKey), //3
+  ];
+  final List<Widget> pagesExtended = [
+    MoreActionsPage(), //4
+    SubscriptionsPage(key: subscriptionsPageStateKey), //5
+    NotificationsPage(), //6
+    WalletDetailsPage(
+        key: walletDetailsAllSpendingPageStateKey, wallet: null), //7
+    AccountsPage(key: accountsPageStateKey), // 8
+    EditWalletsPage(), //9
+    EditBudgetPage(), //10
+    EditCategoriesPage(), //11
+    EditAssociatedTitlesPage(), //12
+    AboutPage(), //13
+    ObjectivesListPage(key: objectivesListPageStateKey, backButton: false), //14
+    EditObjectivesPage(objectiveType: ObjectiveType.goal), //15
+    UpcomingOverdueTransactions(
+        key: upcomingOverdueTransactionsStateKey,
+        overdueTransactions: null), //16
+    CreditDebtTransactions(key: creditDebtTransactionsKey, isCredit: null), //17
+  ];
 
   late int currentPage = widget.widthSideNavigationBar <= 0
       ? (int.tryParse(navBarIconsData[appStateSettings["customNavBarShortcut0"]]
@@ -188,6 +396,9 @@ class PageNavigationFrameworkState extends State<PageNavigationFramework> {
       previousPage = currentPage;
       currentPage = page;
     });
+    if (appStateSettings["tabNavigationHapticFeedback"] == true) {
+      HapticFeedback.mediumImpact();
+    }
   }
 
   @override
@@ -265,35 +476,6 @@ class PageNavigationFrameworkState extends State<PageNavigationFramework> {
       }
     });
 
-    pages = [
-      HomePage(key: homePageStateKey), // 0
-      TransactionsListPage(key: transactionsListPageStateKey), //1
-      BudgetsListPage(
-          key: budgetsListPageStateKey, enableBackButton: false), //2
-      MoreActionsPage(key: settingsPageStateKey), //3
-    ];
-    pagesExtended = [
-      MoreActionsPage(), //4
-      SubscriptionsPage(key: subscriptionsPageStateKey), //5
-      NotificationsPage(), //6
-      WalletDetailsPage(
-          key: walletDetailsAllSpendingPageStateKey, wallet: null), //7
-      AccountsPage(key: accountsPageStateKey), // 8
-      EditWalletsPage(), //9
-      EditBudgetPage(), //10
-      EditCategoriesPage(), //11
-      EditAssociatedTitlesPage(), //12
-      AboutPage(), //13
-      ObjectivesListPage(
-          key: objectivesListPageStateKey, backButton: false), //14
-      EditObjectivesPage(objectiveType: ObjectiveType.goal), //15
-      UpcomingOverdueTransactions(
-          key: upcomingOverdueTransactionsStateKey,
-          overdueTransactions: null), //16
-      CreditDebtTransactions(
-          key: creditDebtTransactionsKey, isCredit: null), //17
-    ];
-
     // SchedulerBinding.instance.addPostFrameCallback((Duration duration) {
     //   FeatureDiscovery.discoverFeatures(
     //     context,
@@ -306,159 +488,46 @@ class PageNavigationFrameworkState extends State<PageNavigationFramework> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // Deselect selected transactions
-        int notEmpty = 0;
-        for (String key in globalSelectedID.value.keys) {
-          if (globalSelectedID.value[key]?.isNotEmpty == true) notEmpty++;
-          globalSelectedID.value[key] = [];
-        }
-        globalSelectedID.notifyListeners();
-
-        // Allow the back button to exit the app when on home
-        if (notEmpty <= 0) {
-          if (currentPage == 0) {
-            return true;
-          } else {
-            // Allow back button deselect a selected category first on All Spending page
-            if (currentPage == 7 && categoryIsSelectedOnAllSpending) {
-              return true;
-            }
-            changePage(0);
-          }
-        }
-
-        return false;
-      },
-
-      // The global Widget stack
-      child: Stack(children: [
-        Scaffold(
-          resizeToAvoidBottomInset: false,
-          body: FadeIndexedStack(
-            children: [...pages, ...pagesExtended],
-            index: currentPage,
-            duration: !kIsWeb
-                ? Duration.zero
-                : appStateSettings["batterySaver"]
-                    ? Duration.zero
-                    : Duration(milliseconds: 300),
+    return Stack(children: [
+      Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: FadeIndexedStack(
+          children: [...pages, ...pagesExtended],
+          index: currentPage,
+          duration: !kIsWeb
+              ? Duration.zero
+              : appStateSettings["batterySaver"]
+                  ? Duration.zero
+                  : Duration(milliseconds: 300),
+        ),
+        extendBody: false,
+        bottomNavigationBar: BottomNavBar(
+          currentNavigationStackedIndex: currentPage,
+          onChanged: (index) {
+            changePage(index);
+          },
+        ),
+      ),
+      Align(
+        alignment: AlignmentDirectional.bottomEnd,
+        child: Padding(
+          padding: EdgeInsetsDirectional.only(
+            bottom: getHeightNavigationSidebar(context) + 15,
+            end: 15,
           ),
-          extendBody: false,
-          bottomNavigationBar: BottomNavBar(
-            currentNavigationStackedIndex: currentPage,
-            onChanged: (index) {
-              changePage(index);
-            },
+          child: AnimateFAB(
+            key: ValueKey(1),
+            fab: AddFAB(
+              tooltip: "add-transaction".tr(),
+              openPage: AddTransactionPage(
+                routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+              ),
+            ),
+            condition: [0, 1, 2, 14].contains(currentPage),
           ),
         ),
-        Align(
-          alignment: AlignmentDirectional.bottomEnd,
-          child: Padding(
-            padding: EdgeInsetsDirectional.only(
-              bottom: getHeightNavigationSidebar(context) + 15,
-              end: 15,
-            ),
-            child: Stack(
-              children: [
-                // DescribedFeatureOverlay(
-                //   featureId: 'add_transaction_button',
-                //   tapTarget: IgnorePointer(
-                //     child: AnimateFAB(
-                //       fab: FAB(
-                //         tooltip: "Add Transaction",
-                //         openPage: AddTransactionPage(
-                //
-                //         ),
-                //       ),
-                //       condition: currentPage == 0 || currentPage == 1,
-                //     ),
-                //   ),
-                //   pulseDuration: Duration(milliseconds: 3500),
-                //   contentLocation: ContentLocation.above,
-                //   title: TextFont(
-                //     text: 'Add Transaction',
-                //     fontWeight: FontWeight.bold,
-                //     fontSize: 22,
-                //     maxLines: 3,
-                //   ),
-                //   description: TextFont(
-                //     text: 'Tap the plus to add a transaction',
-                //     fontSize: 17,
-                //     maxLines: 10,
-                //   ),
-                //   backgroundColor: Theme.of(context).primaryColor,
-                //   textColor: Colors.white,
-                //   child: AnimateFAB(
-                //     fab: FAB(
-                //       tooltip: "Add Transaction",
-                //       openPage: AddTransactionPage(
-                //
-                //       ),
-                //     ),
-                //     condition: currentPage == 0 || currentPage == 1,
-                //   ),
-                // ),
-
-                // AnimatedSwitcher(
-                //   duration: Duration(milliseconds: 350),
-                //   switchInCurve: Curves.easeOutCubic,
-                //   switchOutCurve: Curves.ease,
-                //   transitionBuilder:
-                //       (Widget child, Animation<double> animation) {
-                //     return FadeTransition(
-                //       opacity: animation,
-                //       child: ScaleTransition(
-                //         scale: Tween<double>(begin: 0.4, end: 1.0)
-                //             .animate(animation),
-                //         child: child,
-                //       ),
-                //     );
-                //   },
-                //   child: currentPage == 0 ||
-                //           currentPage == 1 ||
-                //           (previousPage == 0 && currentPage != 2) ||
-                //           (previousPage == 1 && currentPage != 2)
-                //       ? AnimateFAB(
-                //           key: ValueKey(1),
-                //           fab: FAB(
-                //             tooltip: "add-transaction".tr(),
-                //             openPage: AddTransactionPage(
-                //               routesToPopAfterDelete:
-                //                   RoutesToPopAfterDelete.None,
-                //             ),
-                //           ),
-                //           condition: currentPage == 0 || currentPage == 1,
-                //         )
-                //       : AnimateFAB(
-                //           key: ValueKey(2),
-                //           fab: FAB(
-                //             tooltip: "add-budget".tr(),
-                //             openPage: AddBudgetPage(
-                //               routesToPopAfterDelete:
-                //                   RoutesToPopAfterDelete.None,
-                //             ),
-                //           ),
-                //           condition: currentPage == 2,
-                //         ),
-                // ),
-                AnimateFAB(
-                  key: ValueKey(1),
-                  fab: AddFAB(
-                    tooltip: "add-transaction".tr(),
-                    openPage: AddTransactionPage(
-                      routesToPopAfterDelete: RoutesToPopAfterDelete.None,
-                    ),
-                  ),
-                  condition: [0, 1, 2, 14].contains(currentPage),
-                )
-              ],
-            ),
-          ),
-        ),
-      ]),
-    );
+      ),
+    ]);
   }
 }
 
@@ -471,7 +540,7 @@ class AddMoreThingsPopup extends StatelessWidget {
     required Map<String, TransactionCategory> categoriesIndexed,
     double? customAmount,
   }) async {
-    Navigator.pop(context);
+    popRoute(context);
     await duplicateTransaction(
       context,
       transactionWithCount.transaction.transactionPk,
@@ -514,7 +583,7 @@ class AddMoreThingsPopup extends StatelessWidget {
             },
             onSelected: (String selection) async {
               if (selection == "transfer-balance") {
-                Navigator.pop(context);
+                popRoute(context);
                 openBottomSheet(
                   context,
                   fullSnap: true,
@@ -538,7 +607,7 @@ class AddMoreThingsPopup extends StatelessWidget {
                   );
                 }
                 if (wallet != null) {
-                  Navigator.pop(context);
+                  popRoute(context);
                   openBottomSheet(
                     context,
                     fullSnap: true,
@@ -603,7 +672,7 @@ class AddMoreThingsPopup extends StatelessWidget {
                         description:
                             "most-common-transactions-description".tr(),
                         onSubmit: () {
-                          Navigator.pop(context);
+                          popRoute(context);
                         },
                         onSubmitLabel: "ok".tr(),
                       );
@@ -652,11 +721,22 @@ class AddMoreThingsPopup extends StatelessWidget {
                       );
                     },
                     getLabel: (TransactionWithCount transactionWithCount) {
-                      double amountInPrimary =
-                          transactionWithCount.transaction.amount *
-                              (amountRatioToPrimaryCurrencyGivenPk(
-                                  Provider.of<AllWallets>(context),
-                                  transactionWithCount.transaction.walletFk));
+                      // Keep the currency displayed in the primary currency
+                      // Therefore no need to convert using the code below...
+                      //
+                      // double amountInPrimary =
+                      //     transactionWithCount.transaction.amount *
+                      //         (amountRatioToPrimaryCurrencyGivenPk(
+                      //             Provider.of<AllWallets>(context),
+                      //             transactionWithCount.transaction.walletFk));
+                      // convertToMoney(
+                      //       Provider.of<AllWallets>(context),
+                      //       amountInPrimary,
+                      //       currencyKey: Provider.of<AllWallets>(context)
+                      //           .indexedByPk[
+                      //               transactionWithCount.transaction.walletFk]
+                      //           ?.currency,
+                      //     )
                       return getTransactionLabelSync(
                             transactionWithCount.transaction,
                             categoriesIndexed[
@@ -666,7 +746,7 @@ class AddMoreThingsPopup extends StatelessWidget {
                           "(" +
                           convertToMoney(
                             Provider.of<AllWallets>(context),
-                            amountInPrimary,
+                            transactionWithCount.transaction.amount,
                             currencyKey: Provider.of<AllWallets>(context)
                                 .indexedByPk[
                                     transactionWithCount.transaction.walletFk]
@@ -734,7 +814,7 @@ class AddMoreThingsPopup extends StatelessWidget {
             // ),
             // extraWidgetAtBeginning: true,
             onSelected: (String selection) async {
-              Navigator.pop(context);
+              popRoute(context);
               if (selection == "long-term") {
                 pushRoute(
                   context,
@@ -797,7 +877,7 @@ class AddMoreThingsPopup extends StatelessWidget {
               if (navigatorKey.currentContext == null) {
                 startCreatingInstallment(context: context);
               } else {
-                Navigator.pop(context);
+                popRoute(context);
                 startCreatingInstallment(context: navigatorKey.currentContext!);
               }
             },
@@ -883,7 +963,7 @@ class AddThing extends StatelessWidget {
                 if (onTap != null) {
                   onTap!();
                 } else {
-                  Navigator.pop(context);
+                  popRoute(context);
                   pushRoute(context, openPage);
                 }
               },
@@ -1062,7 +1142,9 @@ class FadeIndexedStackState extends State<FadeIndexedStack>
     return FadeTransition(
       opacity: _controller,
       child: LazyIndexedStack(
-        index: widget.index,
+        index: (widget.index >= 0 && widget.index < widget.children.length)
+            ? widget.index
+            : 0,
         alignment: widget.alignment,
         textDirection: widget.textDirection,
         sizing: widget.sizing,

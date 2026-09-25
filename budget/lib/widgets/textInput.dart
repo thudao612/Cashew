@@ -1,20 +1,21 @@
-import 'dart:io';
-
 import 'package:budget/functions.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/widgets/framework/popupFramework.dart';
 import 'package:budget/widgets/textWidgets.dart';
+import 'package:budget/widgets/util/contextMenu.dart';
 import 'package:budget/widgets/util/onAppResume.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../colors.dart';
+import 'package:budget/colors.dart';
 
 FocusNode? _currentTextInputFocus;
 bool shouldAutoRefocus = false;
 
 void minimizeKeyboard(BuildContext context) {
-  FocusScopeNode currentFocus = FocusScope.of(context);
-  currentFocus.unfocus();
+  FocusNode? currentFocus = WidgetsBinding.instance.focusManager.primaryFocus;
+  currentFocus?.unfocus();
   Future.delayed(Duration(milliseconds: 10), () {
     shouldAutoRefocus = false;
   });
@@ -98,6 +99,7 @@ class TextInput extends StatelessWidget {
   final TextAlign textAlign;
   final bool autocorrect;
   final int? maxLength;
+  final bool handleOnTapOutside;
 
   const TextInput({
     Key? key,
@@ -135,6 +137,7 @@ class TextInput extends StatelessWidget {
     this.textAlign = TextAlign.start,
     this.autocorrect = true,
     this.maxLength,
+    this.handleOnTapOutside = true,
   }) : super(key: key);
 
   @override
@@ -156,6 +159,13 @@ class TextInput extends StatelessWidget {
           ),
           child: Center(
             child: TextFormField(
+              contextMenuBuilder: contextMenuBuilder,
+              // magnifierConfiguration: TextMagnifierConfiguration.disabled,
+              onTapOutside: handleOnTapOutside == false
+                  ? null
+                  : (event) {
+                      handleOnTapOutsideTextInput(context);
+                    },
               scrollController: scrollController,
               maxLength: maxLength,
               inputFormatters: inputFormatters,
@@ -300,4 +310,11 @@ class TextInput extends StatelessWidget {
       ),
     );
   }
+}
+
+void handleOnTapOutsideTextInput(BuildContext context) {
+  Widget? popupFramework =
+      context.findAncestorWidgetOfExactType<PopupFramework>();
+  TextInput? textInput = context.findAncestorWidgetOfExactType<TextInput>();
+  if (popupFramework == null && textInput == null) minimizeKeyboard(context);
 }

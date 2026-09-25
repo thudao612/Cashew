@@ -10,6 +10,7 @@ import 'package:budget/struct/randomConstants.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/budgetContainer.dart';
 import 'package:budget/widgets/categoryIcon.dart';
+import 'package:budget/widgets/editRowEntry.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
@@ -62,9 +63,7 @@ class ObjectivesListPageState extends State<ObjectivesListPage> {
       dragDownToDismiss: true,
       title: "goals".tr(),
       backButton: widget.backButton,
-      horizontalPadding: enableDoubleColumn(context) == false
-          ? getHorizontalPaddingConstrained(context)
-          : 0,
+      horizontalPaddingConstrained: enableDoubleColumn(context) == false,
       actions: [
         IconButton(
           padding: EdgeInsetsDirectional.all(15),
@@ -398,7 +397,7 @@ class ObjectiveContainer extends StatelessWidget {
             : 20;
     Color containerColor =
         getPlatform() == PlatformOS.isIOS && forceAndroidBubbleDesign == false
-            ? Theme.of(context).canvasColor
+            ? Theme.of(context).colorScheme.background
             : getColor(context, "lightDarkAccentHeavyLight");
     EdgeInsetsDirectional containerPadding = EdgeInsetsDirectional.only(
       start:
@@ -561,7 +560,7 @@ class ObjectiveContainer extends StatelessWidget {
                                               const EdgeInsetsDirectional.only(
                                                   bottom: 2),
                                           child: TextFont(
-                                            textAlign: TextAlign.left,
+                                            textAlign: TextAlign.start,
                                             text: (objective.type ==
                                                     ObjectiveType.loan
                                                 ? (objective.income
@@ -718,27 +717,6 @@ class ObjectiveContainer extends StatelessWidget {
         );
       },
     );
-    if (getPlatform() == PlatformOS.isIOS &&
-        forceAndroidBubbleDesign == false) {
-      child = Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          if (isGridView != true)
-            index == 0 || enableDoubleColumn(context)
-                ? Container(
-                    height: 1.5,
-                    color: getColor(context, "dividerColor"),
-                  )
-                : SizedBox.shrink(),
-          child,
-          if (isGridView != true)
-            Container(
-              height: 1.5,
-              color: getColor(context, "dividerColor"),
-            ),
-        ],
-      );
-    }
     if (demoObjective) {
       return IgnorePointer(
         child: Opacity(
@@ -756,7 +734,10 @@ class ObjectiveContainer extends StatelessWidget {
         ),
       );
     } else {
-      return child;
+      return AddTopAndBottomBorderIfIOS(
+        enabled: getPlatform() == PlatformOS.isIOS,
+        child: child,
+      );
     }
   }
 }
@@ -783,7 +764,7 @@ class ObjectiveContainerDifferenceLoan extends StatelessWidget {
         : 20;
     Color containerColor =
         getPlatform() == PlatformOS.isIOS && forceAndroidBubbleDesign == false
-            ? Theme.of(context).canvasColor
+            ? Theme.of(context).colorScheme.background
             : getColor(context, "lightDarkAccentHeavyLight");
     Widget child = WatchTotalAndAmountOfObjective(
       objective: objective,
@@ -875,7 +856,7 @@ class ObjectiveContainerDifferenceLoan extends StatelessWidget {
                                       int numberTransactions =
                                           snapshot.data ?? 0;
                                       return TextFont(
-                                        textAlign: TextAlign.left,
+                                        textAlign: TextAlign.start,
                                         text: numberTransactions.toString() +
                                             " " +
                                             (numberTransactions == 1
@@ -927,7 +908,7 @@ class ObjectiveContainerDifferenceLoan extends StatelessWidget {
                             padding:
                                 const EdgeInsetsDirectional.only(bottom: 2),
                             child: TextFont(
-                              textAlign: TextAlign.right,
+                              textAlign: TextAlign.end,
                               text: percentageTowardsGoal == 1
                                   ? "settled".tr().capitalizeFirst
                                   : (getDifferenceOfLoan(objective, totalAmount,
@@ -952,25 +933,6 @@ class ObjectiveContainerDifferenceLoan extends StatelessWidget {
         );
       },
     );
-    if (getPlatform() == PlatformOS.isIOS &&
-        forceAndroidBubbleDesign == false) {
-      child = Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          index == 0 || enableDoubleColumn(context)
-              ? Container(
-                  height: 1.5,
-                  color: getColor(context, "dividerColor"),
-                )
-              : SizedBox.shrink(),
-          child,
-          Container(
-            height: 1.5,
-            color: getColor(context, "dividerColor"),
-          ),
-        ],
-      );
-    }
     return child;
   }
 }
@@ -980,13 +942,8 @@ String getObjectiveStatus(BuildContext context, Objective objective,
     {bool addSpendingSavingIndication = false}) {
   String content;
   if (objective.endDate == null) return "";
-  int remainingDays = objective.endDate!
-          .difference(
-            DateTime(DateTime.now().year, DateTime.now().month,
-                DateTime.now().day, 0, 0),
-          )
-          .inDays +
-      1;
+  int remainingDays =
+      objective.endDate!.difference(DateTime.now().justDay()).inDays + 1;
   double amount = ((totalAmount - objectiveAmount) / remainingDays) * -1;
   if (percentageTowardsGoal >= 1) {
     content = objective.type == ObjectiveType.loan

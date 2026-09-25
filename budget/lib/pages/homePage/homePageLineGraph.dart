@@ -2,16 +2,13 @@ import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/budgetPage.dart';
-import 'package:budget/pages/editHomePage.dart';
 import 'package:budget/pages/transactionFilters.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/globalLoadingProgress.dart';
-import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/util/keepAliveClientMixin.dart';
 import 'package:budget/widgets/lineGraph.dart';
-import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -144,11 +141,7 @@ class PastSpendingGraph extends StatelessWidget {
       customStartDateCheckedNull = DateTime.now();
     }
     DateTime customStartDateChecked = customStartDateCheckedNull ??
-        DateTime(
-          DateTime.now().year,
-          DateTime.now().month - monthsToLoad,
-          DateTime.now().day,
-        );
+        DateTime.now().justDay(monthOffset: -monthsToLoad);
 
     DateTime customEndDateChecked =
         customEndDate ?? latestTransactionDate ?? DateTime.now();
@@ -279,11 +272,13 @@ class CalculatePointsParams {
   final DateTime customEndDate;
   final double totalSpentBefore;
   final bool? isIncome;
+  final bool? removeBalanceCorrection;
   final AllWallets allWallets;
   final bool showCumulativeSpending;
   final Map<String, dynamic> appStateSettingsPassed;
   final bool invertPolarity;
   final bool cycleThroughAllDays;
+  final bool isPaidOnly;
 
   CalculatePointsParams({
     required this.transactions,
@@ -291,11 +286,13 @@ class CalculatePointsParams {
     required this.customEndDate,
     required this.totalSpentBefore,
     required this.isIncome,
+    this.removeBalanceCorrection = null,
     required this.allWallets,
     required this.showCumulativeSpending,
     required this.appStateSettingsPassed,
     this.invertPolarity = false,
     this.cycleThroughAllDays = false,
+    this.isPaidOnly = false,
   });
 }
 
@@ -308,12 +305,14 @@ List<Pair> calculatePoints(CalculatePointsParams p) {
 
   for (Transaction transaction in p.transactions) {
     // Remove balance correction transactions if not showing all transactions
-    if (p.isIncome != null && transaction.categoryFk == "0") {
-      continue;
-    }
+    if (p.isIncome != null && transaction.categoryFk == "0") continue;
 
-    DateTime day = DateTime(transaction.dateCreated.year,
-        transaction.dateCreated.month, transaction.dateCreated.day);
+    if (p.removeBalanceCorrection == true && transaction.categoryFk == "0")
+      continue;
+
+    if (p.isPaidOnly && transaction.paid == false) continue;
+
+    DateTime day = transaction.dateCreated.justDay();
     double amount = transaction.amount *
         amountRatioToPrimaryCurrencyGivenPk(
           p.allWallets,
@@ -342,11 +341,10 @@ List<Pair> calculatePoints(CalculatePointsParams p) {
     int index = -1;
     for (DateTime indexDay = p.customStartDate;
         indexDay.compareTo(p.customEndDate) <= 0;
-        indexDay = DateTime(indexDay.year, indexDay.month, indexDay.day + 1)) {
+        indexDay = indexDay.justDay(dayOffset: 1)) {
       index++;
       if (indexDay == p.customStartDate) {
-        indexDay = DateTime(p.customStartDate.year, p.customStartDate.month,
-            p.customStartDate.day);
+        indexDay = p.customStartDate.justDay();
       }
 
       double totalForDay = dailyTotals[indexDay] ?? 0;
@@ -367,17 +365,9 @@ List<Pair> calculatePoints(CalculatePointsParams p) {
         (dailyTotals.length / resolutionThreshold).round().toDouble();
     if (resolution <= 1) resolution = 1;
 
-    DateTime customStartDateStatic = DateTime(
-      p.customStartDate.year,
-      p.customStartDate.month,
-      p.customStartDate.day,
-    );
+    DateTime customStartDateStatic = p.customStartDate.justDay();
 
-    DateTime customEndDateStatic = DateTime(
-      p.customEndDate.year,
-      p.customEndDate.month,
-      p.customEndDate.day,
-    );
+    DateTime customEndDateStatic = p.customEndDate.justDay();
 
     final List<DateTime> filteredDates = dailyTotals.keys
         .where((date) =>

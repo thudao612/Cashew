@@ -1,12 +1,13 @@
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/pages/addWalletPage.dart';
+import 'package:budget/pages/editAssociatedTitlesPage.dart';
 import 'package:budget/pages/editBudgetPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
+import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/fab.dart';
 import 'package:budget/widgets/fadeIn.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
@@ -23,12 +24,12 @@ import 'package:budget/widgets/textInput.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/transactionEntry/transactionEntryTag.dart';
 import 'package:budget/widgets/walletEntry.dart';
-import 'package:drift/drift.dart' show Value;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart' hide SliverReorderableList;
 import 'package:flutter/services.dart' hide TextInput;
 import 'package:budget/widgets/editRowEntry.dart';
 import 'package:budget/modified/reorderable_list.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:provider/provider.dart';
 import 'exchangeRatesPage.dart';
 
@@ -72,7 +73,7 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
         }
       },
       child: PageFramework(
-        horizontalPadding: getHorizontalPaddingConstrained(context),
+        horizontalPaddingConstrained: true,
         dragDownToDismiss: true,
         dragDownToDismissEnabled: dragDownToDismissEnabled,
         scrollToTopButton: true,
@@ -86,20 +87,41 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
           ),
         ),
         actions: [
-          IconButton(
-            padding: EdgeInsetsDirectional.all(15),
-            tooltip: "add-account".tr(),
-            onPressed: () {
-              pushRoute(
-                context,
-                AddWalletPage(
-                  routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+          CustomPopupMenuButton(
+            showButtons: true,
+            keepOutFirst: true,
+            items: [
+              DropdownItemMenu(
+                id: "add-account",
+                label: "add-account".tr(),
+                icon: appStateSettings["outlinedIcons"]
+                    ? Icons.add_outlined
+                    : Icons.add_rounded,
+                action: () {
+                  pushRoute(
+                    context,
+                    AddWalletPage(
+                      routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+                    ),
+                  );
+                },
+              ),
+              DropdownItemMenu(
+                id: "settings",
+                label: "settings".tr(),
+                icon: appStateSettings["outlinedIcons"]
+                    ? Icons.more_vert_outlined
+                    : Icons.more_vert_rounded,
+                action: () => openBottomSheet(
+                  context,
+                  PopupFramework(
+                    hasPadding: false,
+                    child: WalletsSettings(
+                        backgroundColor: getPopupBackgroundColor(context)),
+                  ),
                 ),
-              );
-            },
-            icon: Icon(appStateSettings["outlinedIcons"]
-                ? Icons.add_outlined
-                : Icons.add_rounded),
+              ),
+            ],
           ),
         ],
         slivers: [
@@ -132,30 +154,30 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
               ),
             ),
           ),
-          SliverToBoxAdapter(
-            child: AnimatedExpanded(
-              expand: hideIfSearching(searchValue, isFocused, context) == false,
-              child: ShowAccountLabelSettingToggle(),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: AnimatedExpanded(
-              expand: hideIfSearching(searchValue, isFocused, context) == false,
-              child: SettingsContainerOpenPage(
-                onOpen: () {
-                  checkIfExchangeRateChangeBefore();
-                },
-                onClosed: () {
-                  checkIfExchangeRateChangeAfter();
-                },
-                openPage: ExchangeRates(),
-                title: "exchange-rates".tr(),
-                icon: appStateSettings["outlinedIcons"]
-                    ? Icons.account_balance_wallet_outlined
-                    : Icons.account_balance_wallet_rounded,
-              ),
-            ),
-          ),
+          // SliverToBoxAdapter(
+          //   child: AnimatedExpanded(
+          //     expand: hideIfSearching(searchValue, isFocused, context) == false,
+          //     child: ShowAccountLabelSettingToggle(),
+          //   ),
+          // ),
+          // SliverToBoxAdapter(
+          //   child: AnimatedExpanded(
+          //     expand: hideIfSearching(searchValue, isFocused, context) == false,
+          //     child: SettingsContainerOpenPage(
+          //       onOpen: () {
+          //         checkIfExchangeRateChangeBefore();
+          //       },
+          //       onClosed: () {
+          //         checkIfExchangeRateChangeAfter();
+          //       },
+          //       openPage: ExchangeRates(),
+          //       title: "exchange-rates".tr(),
+          //       icon: appStateSettings["outlinedIcons"]
+          //           ? Icons.account_balance_wallet_outlined
+          //           : Icons.account_balance_wallet_rounded,
+          //     ),
+          //   ),
+          // ),
           // SliverToBoxAdapter(
           //   child: AnimatedExpanded(
           //     expand: hideIfSearching(searchValue, isFocused, context) == false,
@@ -215,16 +237,26 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
                         amountLight: 0.55,
                         amountDark: 0.35);
                     return EditRowEntry(
-                      extraIcon: appStateSettings["selectedWalletPk"] ==
+                      extraIcon: Provider.of<SelectedWalletPk>(context)
+                                  .selectedWalletPk ==
                               wallet.walletPk
                           ? appStateSettings["outlinedIcons"]
                               ? Icons.star_outlined
                               : Icons.star_rounded
                           : Icons.star_outline,
                       onExtra: () async {
-                        setPrimaryWallet(wallet.walletPk);
+                        setPrimaryWallet(
+                          wallet.walletPk,
+                          allWallets:
+                              Provider.of<AllWallets>(context, listen: false),
+                        );
                       },
-                      canDelete: (wallet.walletPk != "0"),
+                      canDelete: (wallet.walletPk != "0" ||
+                          Provider.of<AllWallets>(context, listen: true)
+                                  .indexedByPk
+                                  .entries
+                                  .length >
+                              1),
                       canReorder: searchValue == "" &&
                           (snapshot.data ?? []).length != 1,
                       currentReorder:
@@ -241,7 +273,7 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
                           ),
                           Container(height: 2),
                           TextFont(
-                            textAlign: TextAlign.left,
+                            textAlign: TextAlign.start,
                             text: convertToMoney(
                               Provider.of<AllWallets>(context),
                               walletWithDetails.totalSpent ?? 0,
@@ -255,7 +287,8 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               AnimatedSizeSwitcher(
-                                child: appStateSettings["selectedWalletPk"] ==
+                                child: Provider.of<SelectedWalletPk>(context)
+                                            .selectedWalletPk ==
                                         wallet.walletPk
                                     ? Padding(
                                         padding:
@@ -275,7 +308,7 @@ class _EditWalletsPageState extends State<EditWalletsPage> {
                                     : Container(),
                               ),
                               TextFont(
-                                textAlign: TextAlign.left,
+                                textAlign: TextAlign.start,
                                 text: walletWithDetails.numberTransactions
                                         .toString() +
                                     " " +
@@ -360,14 +393,14 @@ Future<DeletePopupAction?> deleteWalletPopup(
             ? Icons.warning_outlined
             : Icons.warning_rounded,
         onCancel: () {
-          Navigator.pop(context, false);
+          popRoute(context, false);
         },
         onCancelLabel: "cancel".tr(),
         onSubmit: () async {
-          Navigator.pop(context, true);
+          popRoute(context, true);
         },
         onExtra2: () {
-          Navigator.pop(context, false);
+          popRoute(context, false);
           mergeWalletPopup(
             context,
             walletOriginal: wallet,
@@ -380,9 +413,9 @@ Future<DeletePopupAction?> deleteWalletPopup(
     }
     if (result == true) {
       if (routesToPopAfterDelete == RoutesToPopAfterDelete.All) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        popAllRoutes(context);
       } else if (routesToPopAfterDelete == RoutesToPopAfterDelete.One) {
-        Navigator.of(context).pop();
+        popRoute(context);
       }
       openLoadingPopupTryCatch(() async {
         await database.deleteWallet(wallet.walletPk, wallet.order);
@@ -419,19 +452,19 @@ void mergeWalletPopup(
           ? Icons.merge_outlined
           : Icons.merge_rounded,
       onSubmit: () async {
-        Navigator.pop(context, true);
+        popRoute(context, true);
       },
       onSubmitLabel: "merge".tr(),
       onCancelLabel: "cancel".tr(),
       onCancel: () {
-        Navigator.pop(context);
+        popRoute(context);
       },
     );
     if (result == true) {
       if (routesToPopAfterDelete == RoutesToPopAfterDelete.All) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        popAllRoutes(context);
       } else if (routesToPopAfterDelete == RoutesToPopAfterDelete.One) {
-        Navigator.of(context).pop();
+        popRoute(context);
       }
       openLoadingPopupTryCatch(() async {
         await database.moveWalletTransactions(
@@ -440,24 +473,8 @@ void mergeWalletPopup(
           selectedWalletResult.walletPk,
         );
         if (walletOriginal.walletPk == "0") {
-          // If the source if the main wallet (we cannot delete it)
-          // Move transactions the other way and update parameters if moving to main wallet
-
-          // Update the primary wallet to match source
-          await database.createOrUpdateWallet(
-              selectedWalletResult.copyWith(walletPk: walletOriginal.walletPk));
-          // Force move transactions over
-          await database.transferTransactionsOnly(
-              selectedWalletResult.walletPk, walletOriginal.walletPk);
-          // Delete the duplicate
-          await database.deleteWallet(
-              selectedWalletResult.walletPk, selectedWalletResult.order);
+          await database.convertToPrimaryWallet(selectedWalletResult);
         } else {
-          await database.moveWalletTransactions(
-            Provider.of<AllWallets>(context, listen: false),
-            walletOriginal.walletPk,
-            selectedWalletResult.walletPk,
-          );
           await database.deleteWallet(
               walletOriginal.walletPk, walletOriginal.order);
         }
@@ -560,7 +577,7 @@ Future<TransactionWallet?> selectWalletPopup(
               onChanged: (Object? object) {
                 TransactionWallet? wallet;
                 if (object is WalletWithDetails) wallet = object.wallet;
-                Navigator.of(context).pop(wallet);
+                popRoute(context, wallet);
               },
               onLongPress: (Object? object) {
                 TransactionWallet? wallet;
@@ -609,12 +626,37 @@ class ShowAccountLabelSettingToggle extends StatelessWidget {
   }
 }
 
+class ShowCurrencyLabelSettingToggle extends StatelessWidget {
+  const ShowCurrencyLabelSettingToggle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedExpanded(
+      expand:
+          Provider.of<AllWallets>(context).allContainSameCurrency() == false,
+      child: SettingsContainerSwitch(
+        title: "currency-label".tr(),
+        description: "currency-label-description".tr(),
+        onSwitched: (value) {
+          updateSettings("showCurrencyLabel", value, updateGlobalState: true);
+        },
+        initialValue: appStateSettings["showCurrencyLabel"] == true,
+        icon: appStateSettings["outlinedIcons"]
+            ? Symbols.event_list_sharp
+            : Symbols.event_list_rounded,
+      ),
+    );
+  }
+}
+
 class ExchangeRateSettingPage extends StatelessWidget {
-  const ExchangeRateSettingPage({super.key});
+  const ExchangeRateSettingPage({this.backgroundColor, super.key});
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
     return SettingsContainerOpenPage(
+      backgroundColor: backgroundColor,
       onOpen: () {
         checkIfExchangeRateChangeBefore();
       },
@@ -643,7 +685,7 @@ class PrimaryCurrencySetting extends StatelessWidget {
               : Icons.card_membership_rounded,
           description: "change-currency-description".tr(),
           onSubmit: () {
-            Navigator.pop(context);
+            popRoute(context);
           },
           onSubmitLabel: "ok".tr(),
         );
@@ -680,6 +722,22 @@ class PrimaryCurrencySetting extends StatelessWidget {
               wallet: Provider.of<AllWallets>(context)
                   .indexedByPk[appStateSettings["selectedWalletPk"]],
             ),
+    );
+  }
+}
+
+class WalletsSettings extends StatelessWidget {
+  const WalletsSettings({this.backgroundColor, super.key});
+  final Color? backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ShowAccountLabelSettingToggle(),
+        ShowCurrencyLabelSettingToggle(),
+        ExchangeRateSettingPage(backgroundColor: backgroundColor),
+      ],
     );
   }
 }

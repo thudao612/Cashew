@@ -10,12 +10,10 @@ import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/exportCSV.dart';
-import 'package:budget/widgets/globalSnackbar.dart';
 import 'package:budget/widgets/outlinedButtonStacked.dart';
 import 'package:budget/widgets/tableEntry.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
-import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/widgets/progressBar.dart';
 import 'package:budget/widgets/settingsContainers.dart';
 import 'package:budget/widgets/textInput.dart';
@@ -31,12 +29,7 @@ import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:flutter_charset_detector/flutter_charset_detector.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:universal_html/html.dart' as html;
-import 'dart:io';
-import 'package:budget/struct/randomConstants.dart';
-import 'package:universal_html/html.dart' show AnchorElement;
 import 'package:http/http.dart' as http;
 
 class ImportCSV extends StatefulWidget {
@@ -89,7 +82,7 @@ class _ImportCSVState extends State<ImportCSV> {
         description: "consider-csv-template".tr() + "\n" + e.toString(),
         onCancelWithBoxContext: (BuildContext boxContext) async {
           await saveSampleCSV(boxContext: boxContext);
-          Navigator.pop(context);
+          popRoute(context);
         },
         onCancelLabel: "get-template".tr(),
         icon: appStateSettings["outlinedIcons"]
@@ -97,7 +90,7 @@ class _ImportCSVState extends State<ImportCSV> {
             : Icons.error_rounded,
         onSubmitLabel: "ok".tr(),
         onSubmit: () {
-          Navigator.of(context).pop();
+          popRoute(context);
         },
         barrierDismissible: false,
       );
@@ -219,11 +212,11 @@ class _ImportCSVState extends State<ImportCSV> {
               await importFromSheets
                   ? getGoogleSheetTemplate(context)
                   : saveSampleCSV(boxContext: boxContext);
-              Navigator.pop(context);
+              popRoute(context);
             },
             onCancelLabel: "get-template".tr(),
             onSubmit: () {
-              Navigator.pop(context);
+              popRoute(context);
             },
             onSubmitLabel: "ok".tr(),
           );
@@ -243,6 +236,15 @@ class _ImportCSVState extends State<ImportCSV> {
         context,
         PopupFramework(
           hasPadding: false,
+          outsideExtraWidget: appStateSettings["showFAQAndHelpLink"] == true
+              ? OutsideExtraWidgetIconButton(
+                  iconData: appStateSettings["outlinedIcons"]
+                      ? Icons.live_help_outlined
+                      : Icons.live_help_rounded,
+                  onPressed: () => openUrl(
+                      "https://cashewapp.web.app/faq.html#import-csv-data"),
+                )
+              : null,
           title: "assign-columns".tr(),
           subtitle: (fileContents.length - 1).toString() +
               " " +
@@ -389,7 +391,7 @@ class _ImportCSVState extends State<ImportCSV> {
                         description:
                             "consider-csv-template".tr() + "\n" + e.toString(),
                         onSubmit: () {
-                          Navigator.pop(context);
+                          popRoute(context);
                         },
                         onSubmitLabel: "ok".tr(),
                         onCancelWithBoxContext:
@@ -397,7 +399,7 @@ class _ImportCSVState extends State<ImportCSV> {
                           await importFromSheets
                               ? getGoogleSheetTemplate(context)
                               : saveSampleCSV(boxContext: boxContext);
-                          Navigator.pop(context);
+                          popRoute(context);
                         },
                         onCancelLabel: "get-template".tr(),
                       );
@@ -416,7 +418,7 @@ class _ImportCSVState extends State<ImportCSV> {
         description: "consider-csv-template".tr() + "\n" + e.toString(),
         onCancelWithBoxContext: (BuildContext boxContext) async {
           await saveSampleCSV(boxContext: boxContext);
-          Navigator.pop(context);
+          popRoute(context);
         },
         onCancelLabel: "get-template".tr(),
         icon: appStateSettings["outlinedIcons"]
@@ -424,7 +426,7 @@ class _ImportCSVState extends State<ImportCSV> {
             : Icons.error_rounded,
         onSubmitLabel: "ok".tr(),
         onSubmit: () {
-          Navigator.of(context).pop();
+          popRoute(context);
         },
         barrierDismissible: false,
       );
@@ -445,7 +447,7 @@ class _ImportCSVState extends State<ImportCSV> {
     } catch (e) {
       throw (e.toString());
     }
-    if (noPop == false) Navigator.of(context).pop();
+    if (noPop == false) popRoute(context);
     // Open the progress bar
     // This Widget opened will actually do the importing
 
@@ -464,7 +466,7 @@ class _ImportCSVState extends State<ImportCSV> {
         assignedColumns: assignedColumns,
         fileContents: fileContents,
         next: (numberOfErrors) {
-          Navigator.of(context).pop();
+          popRoute(context);
           openPopup(
             context,
             icon: appStateSettings["outlinedIcons"]
@@ -488,7 +490,7 @@ class _ImportCSVState extends State<ImportCSV> {
                     : ""),
             onSubmitLabel: "ok".tr(),
             onSubmit: () {
-              Navigator.pop(context);
+              popRoute(context);
             },
             barrierDismissible: false,
           );
@@ -543,7 +545,7 @@ class _ImportCSVState extends State<ImportCSV> {
                 description: "consider-csv-template".tr() + "\n" + e.toString(),
                 onCancelWithBoxContext: (BuildContext boxContext) async {
                   await saveSampleCSV(boxContext: boxContext);
-                  Navigator.pop(context);
+                  popRoute(context);
                 },
                 onCancelLabel: "get-template".tr(),
                 icon: appStateSettings["outlinedIcons"]
@@ -551,7 +553,7 @@ class _ImportCSVState extends State<ImportCSV> {
                     : Icons.error_rounded,
                 onSubmitLabel: "ok".tr(),
                 onSubmit: () {
-                  Navigator.of(context).pop();
+                  popRoute(context);
                 },
                 barrierDismissible: false,
               );
@@ -790,7 +792,7 @@ getGoogleSheetTemplate(BuildContext context) {
     title: "create-template-copy".tr(),
     description: "create-template-copy-description".tr(),
     onSubmit: () {
-      Navigator.pop(context);
+      popRoute(context);
     },
     onSubmitLabel: "ok".tr(),
     onCancel: () {
@@ -1197,7 +1199,7 @@ class _ImportingEntriesPopupState extends State<ImportingEntriesPopup> {
               skippedError.take(10).join("\n\n"),
           onCancelWithBoxContext: (BuildContext boxContext) async {
             await saveSampleCSV(boxContext: boxContext);
-            Navigator.pop(context);
+            popRoute(context);
           },
           onCancelLabel: "get-template".tr(),
           icon: appStateSettings["outlinedIcons"]
@@ -1205,7 +1207,7 @@ class _ImportingEntriesPopupState extends State<ImportingEntriesPopup> {
               : Icons.error_rounded,
           onSubmitLabel: "ok".tr(),
           onSubmit: () {
-            Navigator.of(context).pop();
+            popRoute(context);
           },
           barrierDismissible: false,
         );
@@ -1219,7 +1221,7 @@ class _ImportingEntriesPopupState extends State<ImportingEntriesPopup> {
         description: "consider-csv-template".tr() + "\n" + e.toString(),
         onCancelWithBoxContext: (BuildContext boxContext) async {
           await saveSampleCSV(boxContext: boxContext);
-          Navigator.pop(context);
+          popRoute(context);
         },
         onCancelLabel: "get-template".tr(),
         icon: appStateSettings["outlinedIcons"]
@@ -1227,8 +1229,8 @@ class _ImportingEntriesPopupState extends State<ImportingEntriesPopup> {
             : Icons.error_rounded,
         onSubmitLabel: "ok".tr(),
         onSubmit: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).pop();
+          popRoute(context);
+          popRoute(context);
         },
         barrierDismissible: false,
       );
@@ -1310,6 +1312,7 @@ DateTime tryToParseCustomDateFormat(
     dateCreated.day,
     dateCreated.hour,
     dateCreated.minute,
+    dateCreated.second,
   );
   return dateCreated;
 }

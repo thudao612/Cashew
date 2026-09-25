@@ -2,7 +2,6 @@ import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/notificationsSettings.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
-import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/statusBox.dart';
 import 'package:budget/widgets/util/onAppResume.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -41,7 +40,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         await _checkNotificationEnabled();
       },
       child: PageFramework(
-        horizontalPadding: getHorizontalPaddingConstrained(context),
+        horizontalPaddingConstrained: true,
         dragDownToDismiss: true,
         title: "notifications".tr(),
         listWidgets: [
@@ -56,7 +55,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   : Icons.warning_rounded,
               color: Theme.of(context).colorScheme.error,
               onTap: () {
-                AppSettings.openNotificationSettings();
+                AppSettings.openAppSettings(type: AppSettingsType.notification);
               },
             ),
           ),

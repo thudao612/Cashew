@@ -1,10 +1,9 @@
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:flutter/material.dart';
 import 'package:budget/widgets/textWidgets.dart';
-import '../../../colors.dart';
+import 'package:budget/colors.dart';
 
 class PopupFramework extends StatelessWidget {
   PopupFramework({
@@ -37,11 +36,7 @@ class PopupFramework extends StatelessWidget {
     return Stack(
       children: [
         Container(
-          color: appStateSettings["materialYou"]
-              ? dynamicPastel(
-                  context, Theme.of(context).colorScheme.secondaryContainer,
-                  amountDark: 0.3, amountLight: 0.6)
-              : getColor(context, "lightDarkAccent"),
+          color: getPopupBackgroundColor(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -201,13 +196,36 @@ class PopupFramework extends StatelessWidget {
                         : Icons.close_rounded,
                   ),
                   onPressed: () {
-                    Navigator.pop(context);
+                    popRoute(context);
                   },
                 ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class OutsideExtraWidgetIconButton extends StatelessWidget {
+  const OutsideExtraWidgetIconButton({
+    required this.iconData,
+    this.customIconWidget,
+    required this.onPressed,
+    super.key,
+  });
+  final IconData? iconData;
+  final Widget? customIconWidget;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      iconSize: 25,
+      padding: EdgeInsetsDirectional.all(
+          getPlatform() == PlatformOS.isIOS ? 15 : 20),
+      icon: customIconWidget ?? Icon(iconData),
+      onPressed: onPressed,
     );
   }
 }

@@ -1,13 +1,11 @@
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
 import 'package:budget/widgets/navigationFramework.dart';
-import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openContainerNavigation.dart';
 import 'package:budget/widgets/outlinedButtonStacked.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 class AddFAB extends StatelessWidget {
@@ -94,6 +92,22 @@ class FAB extends StatelessWidget {
         : isOutlined
             ? Theme.of(context).colorScheme.secondary
             : Theme.of(context).colorScheme.onSecondary;
+
+    // Experiment with more vibrant FAB colors
+    // Color? containerColor = color != null
+    //     ? color
+    //     : isOutlined
+    //         ? Theme.of(context).colorScheme.onSecondary
+    //         : blend(Theme.of(context).colorScheme.secondary,
+    //             Theme.of(context).colorScheme.primary,
+    //             amount: 0.35);
+    // Color? iconColor = color != null
+    //     ? colorIcon
+    //     : isOutlined
+    //         ? Theme.of(context).colorScheme.secondary
+    //         : blend(Theme.of(context).colorScheme.onSecondary,
+    //             Theme.of(context).colorScheme.onPrimary,
+    //             amount: 0.35);
     return OpenContainerNavigation(
       closedElevation: 10,
       borderRadius: borderRadius,

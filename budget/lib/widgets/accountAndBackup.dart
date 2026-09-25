@@ -1,8 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:budget/colors.dart';
-import 'package:budget/database/binary_string_conversion.dart';
 import 'package:budget/database/generatePreviewData.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/firebase_options.dart';
@@ -16,6 +13,7 @@ import 'package:budget/struct/shareBudget.dart';
 import 'package:budget/struct/syncClient.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
+import 'package:budget/widgets/exportCSV.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
 import 'package:budget/widgets/importDB.dart';
 import 'package:budget/widgets/moreIcons.dart';
@@ -78,7 +76,6 @@ signIn.GoogleSignInAccount? googleUser;
 Future<bool> signInGoogle(
     {BuildContext? context,
     bool? waitForCompletion,
-    bool? drivePermissions,
     bool? gMailPermissions,
     bool? drivePermissionsAttachments,
     bool? silentSignIn,
@@ -115,7 +112,12 @@ Future<bool> signInGoogle(
     if (waitForCompletion == true && context != null) openLoadingPopup(context);
     if (googleUser == null) {
       List<String> scopes = [
-        ...(drivePermissions == true ? [drive.DriveApi.driveAppdataScope] : []),
+        // See https://github.com/flutter/flutter/issues/155490 and https://github.com/flutter/flutter/issues/155429
+        // Once an account is logged in with these scopes, they are not needed
+        // So we will keep these to apply for all users to prevent errors, especially on silent sign in
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/userinfo.email",
+        drive.DriveApi.driveAppdataScope,
         ...(drivePermissionsAttachments == true
             ? [drive.DriveApi.driveFileScope]
             : []),
@@ -154,32 +156,24 @@ Future<bool> signInGoogle(
         // print("ACCOUNT");
         // print(account);
         googleUser = account;
-        updateSettings(
-          "currentUserEmail",
-          googleUser?.email ?? "",
-          updateGlobalState: true,
-          forceGlobalStateUpdate:
-              context == null || getIsFullScreen(context) ? true : false,
-        );
-        accountsPageStateKey.currentState?.refreshState();
-        settingsPageStateKey.currentState?.refreshState();
+        await updateSettings("currentUserEmail", googleUser?.email ?? "",
+            updateGlobalState: false);
       } else {
         throw ("Login failed");
       }
     }
-    if (waitForCompletion == true && context != null)
-      Navigator.of(context).pop();
+    if (waitForCompletion == true && context != null) popRoute(context);
     if (next != null) next();
 
     if (appStateSettings["hasSignedIn"] == false) {
-      updateSettings("hasSignedIn", true, updateGlobalState: false);
+      await updateSettings("hasSignedIn", true, updateGlobalState: false);
     }
 
+    refreshUIAfterLoginChange();
     return true;
   } catch (e) {
     print(e);
-    if (waitForCompletion == true && context != null)
-      Navigator.of(context).pop();
+    if (waitForCompletion == true && context != null) popRoute(context);
     openSnackbar(
       SnackbarMessage(
         title: "sign-in-error".tr(),
@@ -188,16 +182,32 @@ Future<bool> signInGoogle(
             ? Icons.error_outlined
             : Icons.error_rounded,
         timeout: Duration(milliseconds: 3400),
+        onTap: () => signInGoogle(
+          context: context,
+          drivePermissionsAttachments: drivePermissionsAttachments,
+          gMailPermissions: gMailPermissions,
+          next: next,
+          silentSignIn: false,
+          waitForCompletion: waitForCompletion,
+        ),
       ),
     );
-    updateSettings("currentUserEmail", "", updateGlobalState: true);
+    googleUser = null;
+    await updateSettings("currentUserEmail", "", updateGlobalState: false);
     if (runningCloudFunctions) {
       errorSigningInDuringCloud = true;
     } else {
-      updateSettings("hasSignedIn", false, updateGlobalState: false);
+      await updateSettings("hasSignedIn", false, updateGlobalState: false);
     }
+    refreshUIAfterLoginChange();
     throw ("Error signing in");
   }
+}
+
+void refreshUIAfterLoginChange() {
+  sidebarStateKey.currentState?.refreshState();
+  accountsPageStateKey.currentState?.refreshState();
+  settingsGoogleAccountLoginButtonKey.currentState?.refreshState();
 }
 
 Future<bool> testIfHasGmailAccess() async {
@@ -219,8 +229,9 @@ Future<bool> testIfHasGmailAccess() async {
 Future<bool> signOutGoogle() async {
   await googleSignIn?.signOut();
   googleUser = null;
-  updateSettings("currentUserEmail", "", updateGlobalState: true);
-  updateSettings("hasSignedIn", false, updateGlobalState: false);
+  await updateSettings("currentUserEmail", "", updateGlobalState: false);
+  await updateSettings("hasSignedIn", false, updateGlobalState: false);
+  refreshUIAfterLoginChange();
   print("Signedout");
   return true;
 }
@@ -235,10 +246,9 @@ Future<bool> signInAndSync(BuildContext context,
     {required dynamic Function() next}) async {
   dynamic result = true;
   if (getPlatform() == PlatformOS.isIOS &&
-      navigatorKey.currentContext != null &&
       appStateSettings["hasSignedIn"] != true) {
     result = await openPopup(
-      navigatorKey.currentContext!,
+      null,
       icon: appStateSettings["outlinedIcons"]
           ? Icons.badge_outlined
           : Icons.badge_rounded,
@@ -246,10 +256,10 @@ Future<bool> signInAndSync(BuildContext context,
       description: "google-drive-backup-disclaimer".tr(),
       onSubmitLabel: "continue".tr(),
       onSubmit: () {
-        Navigator.pop(navigatorKey.currentContext!, true);
+        popRoute(null, true);
       },
       onCancel: () {
-        Navigator.pop(navigatorKey.currentContext!);
+        popRoute(null);
       },
       onCancelLabel: "cancel".tr(),
     );
@@ -261,11 +271,10 @@ Future<bool> signInAndSync(BuildContext context,
     await signInGoogle(
       context: context,
       waitForCompletion: false,
-      drivePermissions: true,
       next: next,
     );
     if (appStateSettings["username"] == "" && googleUser != null) {
-      updateSettings("username", googleUser?.displayName ?? "",
+      await updateSettings("username", googleUser?.displayName ?? "",
           pagesNeedingRefresh: [0], updateGlobalState: false);
     }
     if (googleUser != null) {
@@ -351,14 +360,17 @@ bool openDatabaseCorruptedPopup(BuildContext context) {
           : Icons.heart_broken_rounded,
       title: "database-corrupted".tr(),
       description: "database-corrupted-description".tr(),
+      descriptionWidget: CodeBlock(
+        text: databaseCorruptedError,
+      ),
       barrierDismissible: false,
       onSubmit: () async {
-        Navigator.pop(context);
+        popRoute(context);
         await importDB(context, ignoreOverwriteWarning: true);
       },
       onSubmitLabel: "import-backup".tr(),
       onCancel: () async {
-        Navigator.pop(context);
+        popRoute(context);
         await openLoadingPopupTryCatch(() async {
           await forceDeleteDB();
           await sharedPreferences.clear();
@@ -388,7 +400,7 @@ Future<void> createBackup(
     await backupSettings();
   } catch (e) {
     if (silentBackup == false || silentBackup == null) {
-      Navigator.of(context).maybePop();
+      maybePopRoute(context);
     }
     openSnackbar(
       SnackbarMessage(
@@ -438,7 +450,7 @@ Future<void> createBackup(
         ),
       );
     if (clientIDForSync == null)
-      updateSettings("lastBackup", DateTime.now().toString(),
+      await updateSettings("lastBackup", DateTime.now().toString(),
           pagesNeedingRefresh: [], updateGlobalState: false);
 
     if (silentBackup == false || silentBackup == null) {
@@ -474,9 +486,6 @@ Future<void> deleteRecentBackups(context, amountToKeep,
     final authHeaders = await googleUser!.authHeaders;
     final authenticateClient = GoogleAuthClient(authHeaders);
     final driveApi = drive.DriveApi(authenticateClient);
-    if (driveApi == null) {
-      throw "Failed to login to Google Drive";
-    }
 
     drive.FileList fileList = await driveApi.files.list(
       spaces: 'appDataFolder',
@@ -535,7 +544,7 @@ Future<void> chooseBackup(context,
       ),
     );
   } catch (e) {
-    Navigator.of(context).pop();
+    popRoute(context);
     openSnackbar(
       SnackbarMessage(
           title: e.toString(),
@@ -558,7 +567,7 @@ Future<void> loadBackup(
         .get(file.id ?? "", downloadOptions: drive.DownloadOptions.fullMedia);
     response.stream.listen(
       (data) {
-        print("Data: ${data.length}");
+        // print("Data: ${data.length}");
         dataStore.insertAll(dataStore.length, data);
       },
       onDone: () async {
@@ -566,7 +575,7 @@ Future<void> loadBackup(
 
         // if this is added, it doesn't restore the database properly on web
         // await database.close();
-        Navigator.of(context).pop();
+        popRoute(context);
         await resetLanguageToSystem(context);
         await updateSettings("databaseJustImported", true,
             pagesNeedingRefresh: [], updateGlobalState: false);
@@ -578,7 +587,7 @@ Future<void> loadBackup(
                   ? Icons.settings_backup_restore_outlined
                   : Icons.settings_backup_restore_rounded),
         );
-        Navigator.pop(context);
+        popRoute(context);
         restartAppPopup(
           context,
           description: kIsWeb
@@ -606,7 +615,7 @@ Future<void> loadBackup(
       },
     );
   } catch (e) {
-    Navigator.of(context).pop();
+    popRoute(context);
     openSnackbar(
       SnackbarMessage(
           title: e.toString(),
@@ -621,41 +630,43 @@ class GoogleAccountLoginButton extends StatefulWidget {
   const GoogleAccountLoginButton({
     super.key,
     this.navigationSidebarButton = false,
-    this.onTap,
     this.isButtonSelected = false,
     this.isOutlinedButton = true,
     this.forceButtonName,
   });
   final bool navigationSidebarButton;
-  final Function? onTap;
   final bool isButtonSelected;
   final bool isOutlinedButton;
   final String? forceButtonName;
 
   @override
   State<GoogleAccountLoginButton> createState() =>
-      _GoogleAccountLoginButtonState();
+      GoogleAccountLoginButtonState();
 }
 
-class _GoogleAccountLoginButtonState extends State<GoogleAccountLoginButton> {
-  loginWithSync() {
+class GoogleAccountLoginButtonState extends State<GoogleAccountLoginButton> {
+  void refreshState() {
+    setState(() {});
+  }
+
+  void openPage({VoidCallback? onNext}) {
+    if (widget.navigationSidebarButton) {
+      pageNavigationFrameworkKey.currentState!
+          .changePage(8, switchNavbar: true);
+      appStateKey.currentState?.refreshAppState();
+    } else {
+      if (onNext != null) onNext();
+    }
+  }
+
+  void loginWithSync({VoidCallback? onNext}) {
     signInAndSync(
       widget.navigationSidebarButton
           ? navigatorKey.currentContext ?? context
           : context,
       next: () {
         setState(() {});
-        if (widget.navigationSidebarButton) {
-          if (widget.onTap != null) widget.onTap!();
-        } else {
-          // Navigator.push(
-          //   context,
-          //   MaterialPageRoute(
-          //     builder: (context) => AccountsPage(),
-          //   ),
-          // );
-          pushRoute(context, AccountsPage());
-        }
+        openPage(onNext: onNext);
       },
     );
   }
@@ -688,9 +699,7 @@ class _GoogleAccountLoginButtonState extends State<GoogleAccountLoginButton> {
                     label: "backup".tr(),
                     icon: MoreIcons.google_drive,
                     iconScale: 0.87,
-                    onTap: () async {
-                      if (widget.onTap != null) widget.onTap!();
-                    },
+                    onTap: openPage,
                     isSelected: widget.isButtonSelected,
                   )
                 : NavigationSidebarButton(
@@ -702,39 +711,35 @@ class _GoogleAccountLoginButtonState extends State<GoogleAccountLoginButton> {
                             : Icons.person_rounded
                         : MoreIcons.google_drive,
                     iconScale: widget.forceButtonName == null ? 1 : 0.87,
-                    onTap: () async {
-                      if (widget.onTap != null) widget.onTap!();
-                    },
+                    onTap: openPage,
                     isSelected: widget.isButtonSelected,
                   ),
       );
     }
     return googleUser == null
-        ? Padding(
-            padding:
-                EdgeInsetsDirectional.symmetric(vertical: 5, horizontal: 4),
-            child: getPlatform() == PlatformOS.isIOS
-                ? SettingsContainer(
-                    isOutlined: widget.isOutlinedButton,
-                    onTap: () async {
-                      loginWithSync();
-                    },
-                    title: widget.forceButtonName ?? "backup".tr(),
-                    icon: MoreIcons.google_drive,
-                    iconScale: 0.87,
-                  )
-                : SettingsContainer(
-                    isOutlined: widget.isOutlinedButton,
-                    onTap: () async {
-                      loginWithSync();
-                    },
-                    title: widget.forceButtonName ?? "login".tr(),
-                    icon: widget.forceButtonName == null
-                        ? MoreIcons.google
-                        : MoreIcons.google_drive,
-                    iconScale: widget.forceButtonName == null ? 1 : 0.87,
-                  ),
-          )
+        ? getPlatform() == PlatformOS.isIOS
+            ? SettingsContainerOpenPage(
+                openPage: AccountsPage(),
+                isOutlined: widget.isOutlinedButton,
+                onTap: (openContainer) {
+                  loginWithSync(onNext: openContainer);
+                },
+                title: widget.forceButtonName ?? "backup".tr(),
+                icon: MoreIcons.google_drive,
+                iconScale: 0.87,
+              )
+            : SettingsContainerOpenPage(
+                openPage: AccountsPage(),
+                isOutlined: widget.isOutlinedButton,
+                onTap: (openContainer) {
+                  loginWithSync(onNext: openContainer);
+                },
+                title: widget.forceButtonName ?? "login".tr(),
+                icon: widget.forceButtonName == null
+                    ? MoreIcons.google
+                    : MoreIcons.google_drive,
+                iconScale: widget.forceButtonName == null ? 1 : 0.87,
+              )
         : getPlatform() == PlatformOS.isIOS
             ? SettingsContainerOpenPage(
                 openPage: AccountsPage(),
@@ -893,8 +898,8 @@ class _BackupManagementState extends State<BackupManagement> {
           widget.isManaging && widget.isClientSync == false
               ? SettingsContainerSwitch(
                   enableBorderRadius: true,
-                  onSwitched: (value) {
-                    updateSettings("autoBackups", value,
+                  onSwitched: (value) async {
+                    await updateSettings("autoBackups", value,
                         pagesNeedingRefresh: [], updateGlobalState: false);
                     setState(() {
                       autoBackups = value;
@@ -911,11 +916,11 @@ class _BackupManagementState extends State<BackupManagement> {
           widget.isClientSync
               ? SettingsContainerSwitch(
                   enableBorderRadius: true,
-                  onSwitched: (value) {
+                  onSwitched: (value) async {
                     // Only update global is the sidebar is shown
-                    updateSettings("backupSync", value,
-                        pagesNeedingRefresh: [],
-                        updateGlobalState: getIsFullScreen(context));
+                    await updateSettings("backupSync", value,
+                        pagesNeedingRefresh: [], updateGlobalState: false);
+                    sidebarStateKey.currentState?.refreshState();
                     setState(() {
                       backupSync = value;
                     });
@@ -938,8 +943,8 @@ class _BackupManagementState extends State<BackupManagement> {
                   expand: backupSync,
                   child: SettingsContainerSwitch(
                     enableBorderRadius: true,
-                    onSwitched: (value) {
-                      updateSettings("syncEveryChange", value,
+                    onSwitched: (value) async {
+                      await updateSettings("syncEveryChange", value,
                           pagesNeedingRefresh: [], updateGlobalState: false);
                     },
                     initialValue: appStateSettings["syncEveryChange"],
@@ -961,8 +966,9 @@ class _BackupManagementState extends State<BackupManagement> {
                   child: SettingsContainerDropdown(
                     enableBorderRadius: true,
                     items: ["1", "2", "3", "7", "10", "14"],
-                    onChanged: (value) {
-                      updateSettings("autoBackupsFrequency", int.parse(value),
+                    onChanged: (value) async {
+                      await updateSettings(
+                          "autoBackupsFrequency", int.parse(value),
                           pagesNeedingRefresh: [], updateGlobalState: false);
                     },
                     initial:
@@ -986,7 +992,7 @@ class _BackupManagementState extends State<BackupManagement> {
                   icon: Icons.format_list_numbered_rtl_outlined,
                   initial: appStateSettings["backupLimit"].toString(),
                   items: ["10", "15", "20", "30"],
-                  onChanged: (value) {
+                  onChanged: (value) async {
                     if (int.parse(value) < appStateSettings["backupLimit"]) {
                       openPopup(
                         context,
@@ -996,13 +1002,13 @@ class _BackupManagementState extends State<BackupManagement> {
                         title: "change-limit".tr(),
                         description: "change-limit-warning".tr(),
                         onSubmit: () async {
-                          updateSettings("backupLimit", int.parse(value),
+                          await updateSettings("backupLimit", int.parse(value),
                               updateGlobalState: false);
-                          Navigator.pop(context);
+                          popRoute(context);
                         },
                         onSubmitLabel: "change".tr(),
                         onCancel: () {
-                          Navigator.pop(context);
+                          popRoute(context);
                           setState(() {
                             dropDownKey = UniqueKey();
                           });
@@ -1010,7 +1016,7 @@ class _BackupManagementState extends State<BackupManagement> {
                         onCancelLabel: "cancel".tr(),
                       );
                     } else {
-                      updateSettings("backupLimit", int.parse(value),
+                      await updateSettings("backupLimit", int.parse(value),
                           updateGlobalState: false);
                     }
                   },
@@ -1077,12 +1083,12 @@ class _BackupManagementState extends State<BackupManagement> {
                                       ? Icons.warning_outlined
                                       : Icons.warning_rounded,
                                   onSubmit: () async {
-                                    Navigator.pop(context, true);
+                                    popRoute(context, true);
                                   },
                                   onSubmitLabel: "load".tr(),
                                   onCancelLabel: "cancel".tr(),
                                   onCancel: () {
-                                    Navigator.pop(context);
+                                    popRoute(context);
                                   },
                                 );
                                 if (result == true)
@@ -1100,7 +1106,7 @@ class _BackupManagementState extends State<BackupManagement> {
                               //         (file.value.description ?? ""),
                               //     icon: appStateSettings["outlinedIcons"] ? Icons.warning_outlined : Icons.warning_rounded,
                               //     onSubmit: () async {
-                              //       Navigator.pop(context, true);
+                              //       popRoute(context, true);
                               //     },
                               //     onSubmitLabel: "Close",
                               //   );
@@ -1305,10 +1311,10 @@ class _BackupManagementState extends State<BackupManagement> {
                                                             .tr()
                                                         : null),
                                                     onSubmit: () async {
-                                                      Navigator.pop(context);
+                                                      popRoute(context);
                                                       loadingIndeterminateKey
-                                                          .currentState!
-                                                          .setVisibility(true);
+                                                          .currentState
+                                                          ?.setVisibility(true);
                                                       await deleteBackup(
                                                           driveApiState,
                                                           file.value.id ?? "");
@@ -1331,7 +1337,7 @@ class _BackupManagementState extends State<BackupManagement> {
                                                       // bottomSheetControllerGlobal
                                                       //     .snapToExtent(0);
                                                       if (widget.isClientSync)
-                                                        updateSettings(
+                                                        await updateSettings(
                                                             "devicesHaveBeenSynced",
                                                             appStateSettings[
                                                                     "devicesHaveBeenSynced"] -
@@ -1339,7 +1345,7 @@ class _BackupManagementState extends State<BackupManagement> {
                                                             updateGlobalState:
                                                                 false);
                                                       if (widget.isManaging) {
-                                                        updateSettings(
+                                                        await updateSettings(
                                                             "numBackups",
                                                             appStateSettings[
                                                                     "numBackups"] -
@@ -1348,13 +1354,14 @@ class _BackupManagementState extends State<BackupManagement> {
                                                                 false);
                                                       }
                                                       loadingIndeterminateKey
-                                                          .currentState!
-                                                          .setVisibility(false);
+                                                          .currentState
+                                                          ?.setVisibility(
+                                                              false);
                                                     },
                                                     onSubmitLabel:
                                                         "delete".tr(),
                                                     onCancel: () {
-                                                      Navigator.pop(context);
+                                                      popRoute(context);
                                                     },
                                                     onCancelLabel:
                                                         "cancel".tr(),
@@ -1510,12 +1517,9 @@ Future<bool> saveDriveFileToDevice({
   }
   String fileName = "cashew-" +
       ((fileToSave.name ?? "") +
-              (fileToSave.modifiedTime ?? DateTime.now()).toString())
-          .replaceAll(".sqlite", "")
-          .replaceAll(".", "-")
-          .replaceAll("-", "-")
-          .replaceAll(" ", "-")
-          .replaceAll(":", "-") +
+              cleanFileNameString(
+                  (fileToSave.modifiedTime ?? DateTime.now()).toString()))
+          .replaceAll(".sqlite", "") +
       ".sql";
 
   return await saveFile(
@@ -1543,18 +1547,18 @@ bool openBackupReminderPopupCheck(BuildContext context) {
           "google-drive".tr(),
       onSubmitLabel: "backup".tr().capitalizeFirst,
       onSubmit: () async {
-        Navigator.pop(context);
+        popRoute(context);
         await signInAndSync(context, next: () {});
       },
       onCancelLabel: "never".tr().capitalizeFirst,
-      onCancel: () {
-        Navigator.pop(context);
-        updateSettings("canShowBackupReminderPopup", false,
+      onCancel: () async {
+        popRoute(context);
+        await updateSettings("canShowBackupReminderPopup", false,
             updateGlobalState: false);
       },
       onExtraLabel: "later".tr().capitalizeFirst,
       onExtra: () {
-        Navigator.pop(context);
+        popRoute(context);
       },
     );
     return true;

@@ -3,24 +3,18 @@ import 'dart:math';
 
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/pages/addWalletPage.dart';
 import 'package:budget/pages/editWalletsPage.dart';
 import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
-import 'package:budget/widgets/framework/popupFramework.dart';
-import 'package:budget/widgets/globalSnackbar.dart';
-import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
-import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/widgets/selectChips.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/util/contextMenu.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/number_symbols_data.dart';
@@ -81,6 +75,8 @@ class SelectAmount extends StatefulWidget {
     this.hideWalletPickerIfOneCurrency = false,
     this.hideNextButton = false,
     this.decimals,
+    this.amountTappableBuilder,
+    this.showCalculation = true,
   }) : super(key: key);
   final Function(double, String) setSelectedAmount;
   final String amountPassed;
@@ -102,6 +98,9 @@ class SelectAmount extends StatefulWidget {
   final bool hideWalletPickerIfOneCurrency;
   final bool hideNextButton;
   final int? decimals;
+  final Widget Function(void Function() onLongPress, String amountConverted)?
+      amountTappableBuilder;
+  final bool showCalculation;
 
   @override
   _SelectAmountState createState() => _SelectAmountState();
@@ -163,7 +162,7 @@ class _SelectAmountState extends State<SelectAmount> {
       }
       if (keyIsPressed && event.logicalKey.keyLabel == "Go Back" ||
           event.logicalKey == LogicalKeyboardKey.escape) {
-        Navigator.pop(context);
+        popRoute(context);
       } else if (isControlPressed &&
           keyIsPressed &&
           event.logicalKey == LogicalKeyboardKey.keyC) {
@@ -272,7 +271,7 @@ class _SelectAmountState extends State<SelectAmount> {
           widget.next!();
         }
         if (widget.popWithAmount) {
-          Navigator.pop(
+          popRoute(
               context,
               (amount == ""
                   ? 0
@@ -292,8 +291,8 @@ class _SelectAmountState extends State<SelectAmount> {
     super.dispose();
   }
 
-  void addToAmount(String input) {
-    if (appStateSettings["numberPadHapticFeedback"] == true) {
+  void addToAmount(String input, {bool hapticFeedback = true}) {
+    if (appStateSettings["numberPadHapticFeedback"] == true && hapticFeedback) {
       if (includesOperations(input, false))
         HapticFeedback.mediumImpact();
       else
@@ -352,6 +351,7 @@ class _SelectAmountState extends State<SelectAmount> {
                 ? calculateResult(amount)
                 : double.tryParse(amount) ?? 0),
         amount);
+    bottomSheetControllerGlobal.reMeasure();
   }
 
   void removeToAmount() {
@@ -371,6 +371,7 @@ class _SelectAmountState extends State<SelectAmount> {
                 ? calculateResult(amount)
                 : double.tryParse(amount) ?? 0),
         amount);
+    bottomSheetControllerGlobal.reMeasure();
   }
 
   void removeAll() {
@@ -384,9 +385,7 @@ class _SelectAmountState extends State<SelectAmount> {
                 ? calculateResult(amount)
                 : double.tryParse(amount) ?? 0),
         amount);
-    Future.delayed(Duration(milliseconds: 100), () {
-      bottomSheetControllerGlobal.snapToExtent(0);
-    });
+    bottomSheetControllerGlobal.reMeasure();
   }
 
   bool includesOperations(String input, bool includeDecimal) {
@@ -484,22 +483,22 @@ class _SelectAmountState extends State<SelectAmount> {
   }
 
   pasteFromClipboard() async {
-    String? clipboardText = await readClipboard(showSnackbar: false);
-    double? amount = getAmountFromString(clipboardText ?? "");
+    double? amount = await readAmountFromClipboard();
     if (amount != null) {
       setState(() {
         this.amount = amount.toString();
       });
       widget.setSelectedAmount(amount, amount.toString());
-      openSnackbar(
-        SnackbarMessage(
-          title: "pasted-from-clipboard".tr(),
-          icon: appStateSettings["outlinedIcons"]
-              ? Icons.paste_outlined
-              : Icons.paste_rounded,
-          timeout: Duration(milliseconds: 2500),
-        ),
-      );
+      bottomSheetControllerGlobal.reMeasure();
+    }
+  }
+
+  pasteFromClipboardIntoCalculation() async {
+    double? amount = await readAmountFromClipboard();
+    if (amount != null) {
+      for (String number in removeTrailingZeroes(amount.toString()).split("")) {
+        addToAmount(number, hapticFeedback: false);
+      }
     }
   }
 
@@ -524,6 +523,156 @@ class _SelectAmountState extends State<SelectAmount> {
       amount = removeTrailingZeroes(amount);
       addToAmount("");
     });
+  }
+
+  convertAmountToSelectedCurrency() {
+    TransactionWallet? walletBefore = getSelectedWallet(listen: false);
+    // get the index of the primary wallet
+    int index = 0;
+    for (TransactionWallet wallet
+        in Provider.of<AllWallets>(context, listen: false).list) {
+      if (wallet.walletPk == appStateSettings["selectedWalletPk"]) {
+        break;
+      }
+      index++;
+    }
+
+    if (widget.setSelectedWalletPk != null)
+      widget.setSelectedWalletPk!(
+          Provider.of<AllWallets>(context, listen: false).list[index].walletPk);
+    setState(() {
+      selectedWalletPk =
+          Provider.of<AllWallets>(context, listen: false).list[index].walletPk;
+      walletPkForCurrency =
+          Provider.of<AllWallets>(context, listen: false).list[index].walletPk;
+      try {
+        amount = (double.parse(amount) *
+                (walletBefore == null
+                    ? 1
+                    : (amountRatioToPrimaryCurrencyGivenPk(
+                        Provider.of<AllWallets>(context, listen: false),
+                        walletBefore.walletPk))))
+            .toStringAsFixed(getDecimals(listen: false));
+      } catch (e) {}
+      amount = removeTrailingZeroes(amount);
+      addToAmount("");
+    });
+  }
+
+  Widget amountWidgetBuilder(String amountConverted) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Flexible(
+          child: CustomContextMenu(
+            buttonItems: [
+              ContextMenuButtonItem(
+                type: ContextMenuButtonType.copy,
+                onPressed: () {
+                  ContextMenuController.removeAny();
+                  copyToClipboard(amountConverted);
+                },
+              ),
+              ContextMenuButtonItem(
+                type: ContextMenuButtonType.paste,
+                onPressed: () {
+                  ContextMenuController.removeAny();
+                  pasteFromClipboard();
+                },
+              ),
+            ],
+            tappableBuilder: (onLongPress) =>
+                widget.amountTappableBuilder
+                    ?.call(onLongPress, amountConverted) ??
+                Tappable(
+                  color: Colors.transparent,
+                  borderRadius: 10,
+                  onTap: () {
+                    return;
+                  },
+                  onLongPress: onLongPress,
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      end: 8.0,
+                      bottom: 5,
+                      start: 5,
+                      top: 5,
+                    ),
+                    child: TextFont(
+                      autoSizeText: true,
+                      maxLines: 1,
+                      minFontSize: 16,
+                      text: amountConverted,
+                      // text: amount,
+                      textAlign: TextAlign.end,
+                      fontSize: 35,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+          ),
+        ),
+        widget.enableWalletPicker == false ||
+                Provider.of<AllWallets>(context).list.length <= 1 ||
+                (widget.hideWalletPickerIfOneCurrency &&
+                    Provider.of<AllWallets>(context).allContainSameCurrency())
+            ? SizedBox.shrink()
+            : MediaQuery(
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.symmetric(vertical: 3.0),
+                  child: AnimatedExpanded(
+                    axis: Axis.horizontal,
+                    expand: (getSelectedWallet(listen: true)?.walletPk ==
+                                appStateSettings["selectedWalletPk"] ||
+                            ((Provider.of<AllWallets>(context)
+                                    .indexedByPk[getSelectedWallet(listen: true)
+                                        ?.walletPk]
+                                    ?.currency) ==
+                                Provider.of<AllWallets>(context)
+                                    .indexedByPk[
+                                        appStateSettings["selectedWalletPk"]]
+                                    ?.currency)) ==
+                        false,
+                    child: Tappable(
+                      key: ValueKey(getSelectedWallet(listen: true)?.walletPk),
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      borderRadius: 13,
+                      onTap: () => convertAmountToSelectedCurrency(),
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.symmetric(
+                            horizontal: 8, vertical: 7),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.currency_exchange_rounded,
+                              size: 16,
+                            ),
+                            SizedBox(height: 2),
+                            TextFont(
+                              text: Provider.of<AllWallets>(context)
+                                      .indexedByPk[
+                                          appStateSettings["selectedWalletPk"]]
+                                      ?.currency
+                                      .toString()
+                                      .toUpperCase() ??
+                                  "",
+                              fontSize: 11,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(1.0)),
+              ),
+      ],
+    );
   }
 
   @override
@@ -566,240 +715,79 @@ class _SelectAmountState extends State<SelectAmount> {
               if (widget.showEnteredNumber == true)
                 Padding(
                   padding: widget.padding,
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.end,
-                    children: [
-                      AnimatedSwitcher(
-                        duration: Duration(milliseconds: 400),
-                        child: FractionallySizedBox(
-                          key: ValueKey(amount),
-                          widthFactor: 0.5,
-                          child: Padding(
-                            padding: const EdgeInsetsDirectional.only(
-                                bottom: 3.0, start: 8, top: 5),
-                            child: TextFont(
-                              text: (includesOperations(amount, false) &&
-                                      onlyOneOperationAndIsNegativeSign(
-                                              amount) ==
-                                          false
-                                  ? operationsWithSpaces(amount)
-                                  : ""),
-                              textAlign: TextAlign.left,
-                              fontSize: 18,
-                              maxLines: 5,
-                            ),
-                          ),
-                        ),
-                      ),
-                      AnimatedSwitcher(
-                        duration: Duration(milliseconds: 200),
-                        child: FractionallySizedBox(
-                          key: ValueKey(amount),
-                          widthFactor: 0.5,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Flexible(
-                                child: CustomContextMenu(
-                                  buttonItems: [
-                                    ContextMenuButtonItem(
-                                      type: ContextMenuButtonType.copy,
-                                      onPressed: () {
-                                        ContextMenuController.removeAny();
-                                        copyToClipboard(amountConverted);
-                                      },
-                                    ),
-                                    ContextMenuButtonItem(
-                                      type: ContextMenuButtonType.paste,
-                                      onPressed: () {
-                                        ContextMenuController.removeAny();
-                                        pasteFromClipboard();
-                                      },
-                                    ),
-                                  ],
-                                  tappableBuilder: (onLongPress) => Tappable(
-                                    color: Colors.transparent,
-                                    borderRadius: 10,
-                                    onTap: () {
-                                      return;
-                                    },
-                                    onLongPress: onLongPress,
-                                    child: Padding(
-                                      padding: const EdgeInsetsDirectional.only(
-                                        end: 8.0,
-                                        bottom: 5,
-                                        start: 5,
-                                        top: 5,
-                                      ),
-                                      child: AnimatedSizeSwitcher(
-                                        child: TextFont(
-                                          key: ValueKey(selectedWalletPk),
-                                          autoSizeText: true,
-                                          maxLines: 1,
-                                          minFontSize: 16,
-                                          text: amountConverted,
-                                          // text: amount,
-                                          textAlign: TextAlign.right,
-                                          fontSize: 35,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                  child: Builder(builder: (context) {
+                    String calculationString = (includesOperations(
+                                amount, false) &&
+                            onlyOneOperationAndIsNegativeSign(amount) == false
+                        ? operationsWithSpaces(amount)
+                        : "");
+                    Widget calculationWidget = calculationString == "" ||
+                            widget.showCalculation == false
+                        ? SizedBox.shrink()
+                        : CustomContextMenu(
+                            buttonItems: [
+                              ContextMenuButtonItem(
+                                type: ContextMenuButtonType.paste,
+                                onPressed: () {
+                                  ContextMenuController.removeAny();
+                                  pasteFromClipboardIntoCalculation();
+                                },
+                              ),
+                            ],
+                            tappableBuilder: (onLongPress) => Tappable(
+                              color: Colors.transparent,
+                              borderRadius: 10,
+                              onTap: () {
+                                return;
+                              },
+                              onLongPress: onLongPress,
+                              child: Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  end: 8.0,
+                                  bottom: 5,
+                                  start: 5,
+                                  top: 5,
+                                ),
+                                child: TextFont(
+                                  text: calculationString,
+                                  textAlign: TextAlign.start,
+                                  fontSize: 18,
+                                  maxLines: 5,
                                 ),
                               ),
-                              widget.enableWalletPicker == false ||
-                                      Provider.of<AllWallets>(context)
-                                              .list
-                                              .length <=
-                                          1 ||
-                                      (widget.hideWalletPickerIfOneCurrency &&
-                                          Provider.of<AllWallets>(context)
-                                              .allContainSameCurrency())
-                                  ? SizedBox.shrink()
-                                  : MediaQuery(
-                                      child: Padding(
-                                        padding: const EdgeInsetsDirectional
-                                            .symmetric(vertical: 3.0),
-                                        child: AnimatedExpanded(
-                                          axis: Axis.horizontal,
-                                          expand: (getSelectedWallet(
-                                                              listen: true)
-                                                          ?.walletPk ==
-                                                      appStateSettings[
-                                                          "selectedWalletPk"] ||
-                                                  ((Provider.of<AllWallets>(
-                                                              context)
-                                                          .indexedByPk[
-                                                              getSelectedWallet(
-                                                                      listen:
-                                                                          true)
-                                                                  ?.walletPk]
-                                                          ?.currency) ==
-                                                      Provider.of<AllWallets>(
-                                                              context)
-                                                          .indexedByPk[
-                                                              appStateSettings[
-                                                                  "selectedWalletPk"]]
-                                                          ?.currency)) ==
-                                              false,
-                                          child: Tappable(
-                                            key: ValueKey(
-                                                getSelectedWallet(listen: true)
-                                                    ?.walletPk),
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .secondaryContainer,
-                                            borderRadius: 13,
-                                            onTap: () {
-                                              TransactionWallet? walletBefore =
-                                                  getSelectedWallet(
-                                                      listen: false);
-                                              // get the index of the primary wallet
-                                              int index = 0;
-                                              for (TransactionWallet wallet
-                                                  in Provider.of<AllWallets>(
-                                                          context,
-                                                          listen: false)
-                                                      .list) {
-                                                if (wallet.walletPk ==
-                                                    appStateSettings[
-                                                        "selectedWalletPk"]) {
-                                                  break;
-                                                }
-                                                index++;
-                                              }
-
-                                              if (widget.setSelectedWalletPk !=
-                                                  null)
-                                                widget.setSelectedWalletPk!(
-                                                    Provider.of<AllWallets>(
-                                                            context,
-                                                            listen: false)
-                                                        .list[index]
-                                                        .walletPk);
-                                              setState(() {
-                                                selectedWalletPk =
-                                                    Provider.of<AllWallets>(
-                                                            context,
-                                                            listen: false)
-                                                        .list[index]
-                                                        .walletPk;
-                                                walletPkForCurrency =
-                                                    Provider.of<AllWallets>(
-                                                            context,
-                                                            listen: false)
-                                                        .list[index]
-                                                        .walletPk;
-                                                try {
-                                                  amount = (double.parse(
-                                                              amount) *
-                                                          (walletBefore == null
-                                                              ? 1
-                                                              : (amountRatioToPrimaryCurrencyGivenPk(
-                                                                  Provider.of<
-                                                                          AllWallets>(
-                                                                      context,
-                                                                      listen:
-                                                                          false),
-                                                                  walletBefore
-                                                                      .walletPk))))
-                                                      .toStringAsFixed(
-                                                          getDecimals(
-                                                              listen: false));
-                                                } catch (e) {}
-                                                amount = removeTrailingZeroes(
-                                                    amount);
-                                                addToAmount("");
-                                              });
-                                            },
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsetsDirectional
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 7),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.center,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons
-                                                        .currency_exchange_rounded,
-                                                    size: 16,
-                                                  ),
-                                                  SizedBox(height: 2),
-                                                  TextFont(
-                                                    text: Provider.of<
-                                                                    AllWallets>(
-                                                                context)
-                                                            .indexedByPk[
-                                                                appStateSettings[
-                                                                    "selectedWalletPk"]]
-                                                            ?.currency
-                                                            .toString()
-                                                            .toUpperCase() ??
-                                                        "",
-                                                    fontSize: 11,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      data: MediaQuery.of(context)
-                                          .copyWith(textScaleFactor: 1.0),
-                                    ),
-                            ],
-                          ),
+                            ),
+                          );
+                    Widget amountWidget = amountWidgetBuilder(amountConverted);
+                    return AnimatedSize(
+                      curve: Curves.easeInOut,
+                      clipBehavior: Clip.none,
+                      duration: Duration(milliseconds: 500),
+                      child: Directionality(
+                        textDirection: ui.TextDirection.rtl,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.start,
+                                runAlignment: WrapAlignment.spaceBetween,
+                                verticalDirection: VerticalDirection.up,
+                                children: [
+                                  Directionality(
+                                      textDirection: ui.TextDirection.ltr,
+                                      child: amountWidget),
+                                  Directionality(
+                                    textDirection: ui.TextDirection.ltr,
+                                    child: calculationWidget,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    );
+                  }),
                 ),
               widget.enableWalletPicker == false ||
                       Provider.of<AllWallets>(context).list.length <= 1 ||
@@ -828,6 +816,7 @@ class _SelectAmountState extends State<SelectAmount> {
                         },
                         onSelected: (TransactionWallet wallet) {
                           setSelectedWallet(wallet);
+                          bottomSheetControllerGlobal.reMeasure();
                         },
                         getLabel: (TransactionWallet wallet) {
                           return getWalletStringName(
@@ -917,7 +906,7 @@ class _SelectAmountState extends State<SelectAmount> {
                                 widget.next!();
                               }
                               if (widget.popWithAmount) {
-                                Navigator.pop(
+                                popRoute(
                                     context,
                                     (amount == ""
                                         ? 0
@@ -1050,6 +1039,7 @@ class NumberPadAmount extends StatelessWidget {
               getPlatform() == PlatformOS.isIOS ? 10 : 20),
           child: GestureDetector(
             onLongPress: () async {
+              HapticFeedback.heavyImpact();
               await openBottomSheet(
                 context,
                 NumberPadFormatSettingPopup(),
@@ -1341,7 +1331,7 @@ class _SelectAmountValueState extends State<SelectAmountValue> {
           event.runtimeType == KeyRepeatEvent;
       if (keyIsPressed && event.logicalKey.keyLabel == "Go Back" ||
           event.logicalKey == LogicalKeyboardKey.escape) {
-        Navigator.pop(context);
+        popRoute(context);
       } else if (keyIsPressed &&
           event.logicalKey == LogicalKeyboardKey.digit0) {
         addToAmount("0");
@@ -1499,7 +1489,7 @@ class _SelectAmountValueState extends State<SelectAmountValue> {
                   maxLines: 1,
                   minFontSize: 16,
                   text: amountConverted + widget.suffix,
-                  textAlign: TextAlign.right,
+                  textAlign: TextAlign.end,
                   fontSize: 35,
                   fontWeight: FontWeight.bold,
                 ),

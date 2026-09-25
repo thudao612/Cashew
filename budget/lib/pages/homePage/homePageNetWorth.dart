@@ -2,10 +2,8 @@ import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
-import 'package:budget/pages/editHomePage.dart';
 import 'package:budget/pages/homePage/homePageWalletSwitcher.dart';
 import 'package:budget/pages/transactionFilters.dart';
-import 'package:budget/pages/transactionsSearchPage.dart';
 import 'package:budget/pages/walletDetailsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
@@ -13,11 +11,9 @@ import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
 import 'package:budget/widgets/util/keepAliveClientMixin.dart';
 import 'package:budget/widgets/navigationFramework.dart';
-import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/outlinedButtonStacked.dart';
 import 'package:budget/widgets/periodCyclePicker.dart';
-import 'package:budget/widgets/radioItems.dart';
 import 'package:budget/widgets/transactionsAmountBox.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -58,9 +54,18 @@ class HomePageNetWorth extends StatelessWidget {
                                 true
                             ? null
                             : (double amount) {
+                                double? roundedWalletWithTotal =
+                                    (double.tryParse(absoluteZero(amount)
+                                        .toStringAsFixed(
+                                            Provider.of<AllWallets>(context)
+                                                    .indexedByPk[
+                                                        appStateSettings[
+                                                            "selectedWalletPk"]]
+                                                    ?.decimals ??
+                                                2)));
                                 return appStateSettings["netTotalsColorful"] ==
                                         true
-                                    ? (amount == 0
+                                    ? (roundedWalletWithTotal == 0
                                         ? getColor(context, "black")
                                         : amount > 0
                                             ? getColor(context, "incomeAmount")
@@ -87,7 +92,15 @@ class HomePageNetWorth extends StatelessWidget {
                         //         ? getColor(context, "incomeAmount")
                         //         : getColor(context, "expenseAmount"),
                         textColor: getColor(context, "black"),
-                        openPage: WalletDetailsPage(wallet: null),
+                        openPage: WalletDetailsPage(
+                          wallet: null,
+                          initialSearchFilters: SearchFilters(
+                            dateTimeRange:
+                                getDateTimeRangeForPassedSearchFilters(
+                              cycleSettingsExtension: "NetWorth",
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],

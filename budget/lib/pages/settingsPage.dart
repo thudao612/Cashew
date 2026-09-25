@@ -49,17 +49,16 @@ import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/util/checkWidgetLaunch.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:budget/main.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:provider/provider.dart';
-import '../functions.dart';
+import 'package:budget/functions.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
 import 'package:app_settings/app_settings.dart';
-import '../widgets/outlinedButtonStacked.dart';
+import 'package:budget/widgets/outlinedButtonStacked.dart';
 
 //To get SHA1 Key run
 // ./gradlew signingReport
@@ -94,7 +93,7 @@ class MoreActionsPageState extends State<MoreActionsPage> {
         key: pageState,
         title: "more-actions".tr(),
         backButton: false,
-        horizontalPadding: getHorizontalPaddingConstrained(context),
+        horizontalPaddingConstrained: true,
         actions: [
           CustomPopupMenuButton(
             showButtons: true,
@@ -148,7 +147,9 @@ class MorePages extends StatelessWidget {
                     ),
                     title: navBarIconsData["settings"]!.labelLong.tr(),
                     icon: navBarIconsData["settings"]!.iconData,
-                    description: "settings-and-customization-description".tr(),
+                    description: appStateSettings["showExtraInfoText"] == false
+                        ? null
+                        : "settings-and-customization-description".tr(),
                     isOutlined: true,
                     // description: "Theme, Language, CSV Import",
                     isWideOutlined: true,
@@ -164,7 +165,9 @@ class MorePages extends StatelessWidget {
                     openPage: WalletDetailsPage(wallet: null),
                     title: navBarIconsData["allSpending"]!.labelLong.tr(),
                     icon: navBarIconsData["allSpending"]!.iconData,
-                    description: "all-spending-description".tr(),
+                    description: appStateSettings["showExtraInfoText"] == false
+                        ? null
+                        : "all-spending-description".tr(),
                     isOutlined: true,
                     isWideOutlined: true,
                   ),
@@ -216,18 +219,33 @@ class MorePages extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              notificationsGlobalEnabled
+              appStateSettings["showBillSplitterShortcut"] == true &&
+                      hasSideNavigation == false
                   ? Expanded(
                       child: SettingsContainerOpenPage(
-                        openPage: NotificationsPage(),
-                        title: navBarIconsData["notifications"]!.label.tr(),
-                        icon: navBarIconsData["notifications"]!.iconData,
+                        openPage: BillSplitter(),
+                        title: "bill-splitter".tr(),
+                        icon: appStateSettings["outlinedIcons"]
+                            ? Icons.summarize_outlined
+                            : Icons.summarize_rounded,
                         isOutlined: true,
                       ),
                     )
-                  : SizedBox.shrink(),
+                  : notificationsGlobalEnabled
+                      ? Expanded(
+                          child: SettingsContainerOpenPage(
+                            openPage: NotificationsPage(),
+                            title: navBarIconsData["notifications"]!.label.tr(),
+                            icon: navBarIconsData["notifications"]!.iconData,
+                            isOutlined: true,
+                          ),
+                        )
+                      : SizedBox.shrink(),
               if (hasSideNavigation == false)
-                Expanded(child: GoogleAccountLoginButton()),
+                Expanded(
+                    child: GoogleAccountLoginButton(
+                  key: settingsGoogleAccountLoginButtonKey,
+                )),
             ],
           ),
           if (hasSideNavigation == false)
@@ -671,7 +689,7 @@ class MoreOptionsPagePreferences extends StatelessWidget {
     return PageFramework(
       title: "more".tr(),
       dragDownToDismiss: true,
-      horizontalPadding: getHorizontalPaddingConstrained(context),
+      horizontalPaddingConstrained: true,
       listWidgets: [
         SettingsHeader(title: "style".tr()),
         HeaderHeightSetting(),
@@ -683,21 +701,21 @@ class MoreOptionsPagePreferences extends StatelessWidget {
         SettingsHeader(title: "transactions".tr()),
         TransactionsSettings(),
         SettingsHeader(title: "accounts".tr()),
-        ShowAccountLabelSettingToggle(),
-        ExchangeRateSettingPage(),
+        WalletsSettings(),
         PrimaryCurrencySetting(),
         SettingsHeader(title: "budgets".tr()),
         BudgetSettings(),
         SettingsHeader(title: "goals".tr()),
         ObjectiveSettings(),
         SettingsHeader(title: "titles".tr()),
-        AskForTitlesToggle(),
-        AutoTitlesToggle(),
+        TitlesSettings(),
+        SettingsHeader(title: "widgets".tr()),
         WidgetSettings(),
         SettingsHeader(title: "formatting".tr()),
         NumberFormattingSetting(),
         PercentagePrecisionSetting(),
         Time24HourFormatSetting(),
+        FirstDayOfWeekSetting(updateHomePage: true),
         NumberPadFormatSetting(),
       ],
     );
@@ -715,7 +733,6 @@ class WidgetSettings extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SettingsHeader(title: "widgets".tr()),
         SettingsContainer(
           title: "net-worth-total-widget".tr(),
           description: "select-accounts-and-time-period".tr(),
@@ -836,7 +853,7 @@ class _BiometricsSettingToggleState extends State<BiometricsSettingToggle> {
                       onCancelLabel:
                           getPlatform() == PlatformOS.isIOS ? "ok".tr() : null,
                       onCancel: () {
-                        Navigator.pop(context);
+                        popRoute(context);
                       },
                       onSubmitLabel: getPlatform() == PlatformOS.isIOS
                           ? "open-settings".tr()
@@ -847,11 +864,12 @@ class _BiometricsSettingToggleState extends State<BiometricsSettingToggle> {
                         setState(() {
                           isLocked = false;
                         });
-                        Navigator.pop(context);
+                        popRoute(context);
                         // On iOS the notification app settings page also has
                         // the permission for biometrics
                         if (getPlatform() == PlatformOS.isIOS) {
-                          AppSettings.openNotificationSettings();
+                          AppSettings.openAppSettings(
+                              type: AppSettingsType.notification);
                         }
                       },
                     );
@@ -1095,6 +1113,7 @@ void openFontPicker(BuildContext context) {
           // SF Pro removed - users on iOS can just select Platform font
           // Inter is the font family fallback
           "RobotoCondensed",
+          "Inconsolata",
           "(Platform)",
         ],
         initial: appStateSettings["font"].toString(),
@@ -1102,7 +1121,7 @@ void openFontPicker(BuildContext context) {
         onChanged: (value) async {
           updateSettings("font", value, updateGlobalState: true);
           await Future.delayed(Duration(milliseconds: 50));
-          Navigator.pop(context);
+          popRoute(context);
         },
       ),
     ),
@@ -1118,6 +1137,8 @@ String fontNameDisplayFilter(String value) {
     return "DM Sans";
   } else if (value == "RobotoCondensed") {
     return "Roboto Condensed";
+  } else if (value == "Inconsolata") {
+    return "Inconsolata Monospace";
   }
   return value.toString();
 }
@@ -1320,7 +1341,7 @@ class _SetNumberFormatPopupState extends State<SetNumberFormatPopup> {
             borderRadius: 10,
             color: Colors.transparent,
             onTap: () {
-              Navigator.pop(context);
+              popRoute(context);
               pushRoute(context, EditWalletsPage());
             },
             child: Padding(
@@ -1415,7 +1436,7 @@ class _CustomNumberFormatPopupState extends State<CustomNumberFormatPopup> {
                           });
                           updateSettings("numberFormatDelimiter", text,
                               updateGlobalState: false);
-                          Navigator.pop(context);
+                          popRoute(context);
                         },
                       ),
                     ),
@@ -1481,7 +1502,7 @@ class _CustomNumberFormatPopupState extends State<CustomNumberFormatPopup> {
                           });
                           updateSettings("numberFormatDecimal", text,
                               updateGlobalState: false);
-                          Navigator.pop(context);
+                          popRoute(context);
                         },
                       ),
                     ),
@@ -1743,4 +1764,58 @@ class PercentagePrecisionSetting extends StatelessWidget {
       },
     );
   }
+}
+
+void savingHapticFeedback() {
+  if (appStateSettings["savingHapticFeedback"] == true) {
+    HapticFeedback.lightImpact();
+  }
+}
+
+class FirstDayOfWeekSetting extends StatelessWidget {
+  const FirstDayOfWeekSetting({required this.updateHomePage, super.key});
+  final bool updateHomePage;
+  @override
+  Widget build(BuildContext context) {
+    return SettingsContainerDropdown(
+      title: "first-weekday".tr(),
+      icon: appStateSettings["outlinedIcons"]
+          ? Icons.calendar_month_outlined
+          : Icons.calendar_month_rounded,
+      initial: appStateSettings["firstDayOfWeek"].toString(),
+      items: ["-1", "0", "1"],
+      onChanged: (value) async {
+        int intValue = int.tryParse(value) ?? -1;
+        await updateSettings(
+          "firstDayOfWeek",
+          intValue,
+          updateGlobalState: false,
+          pagesNeedingRefresh: updateHomePage ? [0] : [],
+        );
+      },
+      getLabel: (item) {
+        List<String> weekDayNames = getWeekdayNames();
+        if (item == "-1") return "default".tr();
+        if (item == "0") return weekDayNames[0];
+        if (item == "1") return weekDayNames[1];
+      },
+    );
+  }
+}
+
+List<String> getWeekdayNames() {
+  List<String> localizedWeekdayNames = [];
+  final String? locale = navigatorKey.currentContext?.locale.toString();
+
+  // Use a fixed date that is not affected by daylight saving time.
+  // December 31st, 2023, is a Sunday
+  final DateTime baseDate = DateTime.utc(2023, 12, 31, 12, 0, 0);
+
+  for (int i = 0; i < 7; i++) {
+    final DateTime date = baseDate.add(Duration(days: i));
+    final String weekdayName = DateFormat.EEEE(locale).format(date);
+    localizedWeekdayNames.add(weekdayName);
+  }
+
+  return localizedWeekdayNames;
 }

@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/defaultPreferences.dart';
@@ -85,10 +84,10 @@ class _ButtonState extends State<Button> with TickerProviderStateMixin {
       textColor: widget.textColor ??
           (appStateSettings["materialYou"]
               ? dynamicPastel(context, Theme.of(context).colorScheme.onPrimary,
-                  amount: 0.3)
+                  amount: 0.2)
               : Theme.of(context).colorScheme.onSecondaryContainer),
       maxLines: 5,
-      textAlign: TextAlign.center,
+      textAlign: widget.icon != null ? TextAlign.start : TextAlign.center,
     );
     return Padding(
       padding: EdgeInsetsDirectional.only(
@@ -109,11 +108,11 @@ class _ButtonState extends State<Button> with TickerProviderStateMixin {
                   ? Colors.grey
                   : getColor(context, "lightDarkAccentHeavy")
               : widget.color != null
-                  ? widget.color!.withOpacity(0.8)
+                  ? widget.color
                   : appStateSettings["materialYou"]
                       ? dynamicPastel(
                           context, Theme.of(context).colorScheme.primary,
-                          amount: 0.3)
+                          amount: 0.15)
                       : Theme.of(context).colorScheme.secondaryContainer,
           onHighlightChanged: (value) {
             if (appStateSettings["appAnimations"] == AppAnimations.all.index)
@@ -148,20 +147,19 @@ class _ButtonState extends State<Button> with TickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    widget.icon != null
-                        ? Padding(
-                            padding: const EdgeInsetsDirectional.only(end: 6),
-                            child: Icon(
-                              widget.icon,
-                              size: 21,
-                              color: widget.iconColor == null
-                                  ? Theme.of(context)
-                                      .colorScheme
-                                      .onSecondaryContainer
-                                  : widget.iconColor,
-                            ),
-                          )
-                        : SizedBox.shrink(),
+                    if (widget.icon != null)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 8),
+                        child: Icon(
+                          widget.icon,
+                          size: 21,
+                          color: widget.iconColor == null
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .onSecondaryContainer
+                              : widget.iconColor,
+                        ),
+                      ),
                     widget.flexibleLayout
                         ? Flexible(child: text)
                         : widget.expandedLayout
@@ -286,6 +284,32 @@ class ButtonIcon extends StatelessWidget {
           : color,
       borderRadius: getPlatform() == PlatformOS.isIOS ? 10 : 15,
       onTap: onTap,
+    );
+  }
+}
+
+// If using, subtract 8 from the padding of the parent IconButton
+class SelectedIconForIconButton extends StatelessWidget {
+  const SelectedIconForIconButton(
+      {required this.isSelected, required this.iconData, super.key});
+  final bool isSelected;
+  final IconData iconData;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 500),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? Theme.of(context).colorScheme.tertiary.withOpacity(0.1)
+            : Colors.transparent,
+        borderRadius: BorderRadiusDirectional.circular(100),
+      ),
+      padding: EdgeInsetsDirectional.all(8),
+      child: Icon(
+        iconData,
+        color: isSelected ? Theme.of(context).colorScheme.tertiary : null,
+      ),
     );
   }
 }

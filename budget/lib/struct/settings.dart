@@ -7,6 +7,7 @@ import 'package:budget/widgets/framework/pageFramework.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/transactionEntry/transactionEntry.dart';
+import 'package:budget/widgets/watchAllWallets.dart';
 import 'package:drift/isolate.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:budget/struct/databaseGlobal.dart';
@@ -14,7 +15,6 @@ import 'package:budget/struct/defaultPreferences.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:budget/struct/languageMap.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
@@ -25,7 +25,9 @@ import 'package:budget/pages/activityPage.dart';
 
 Map<String, dynamic> appStateSettings = {};
 bool isDatabaseCorrupted = false;
+String databaseCorruptedError = "";
 bool isDatabaseImportedOnThisSession = false;
+PackageInfo? packageInfoGlobal;
 
 Future<bool> initializeSettings() async {
   packageInfoGlobal = await PackageInfo.fromPlatform();
@@ -61,17 +63,21 @@ Future<bool> initializeSettings() async {
             .toLowerCase()
             .contains("file is not a database")) {
           isDatabaseCorrupted = true;
+          databaseCorruptedError = e.toString();
         }
       } else if (e
           .toString()
           .toLowerCase()
           .contains("file is not a database")) {
         isDatabaseCorrupted = true;
+        databaseCorruptedError = e.toString();
       }
     }
   }
 
   appStateSettings = userSettings;
+  print(
+      "App settings loaded: if logging is enabled, logs will now be captured");
 
   // Do some actions based on loaded settings
   if (appStateSettings["accentSystemColor"] == true) {
@@ -117,6 +123,9 @@ Future<bool> initializeSettings() async {
   }
 
   timeDilation = double.parse(appStateSettings["animationSpeed"].toString());
+
+  selectedWalletPkController.add(SelectedWalletPk(
+      selectedWalletPk: appStateSettings["selectedWalletPk"] ?? "0"));
 
   Map<String, dynamic> defaultPreferences = await getDefaultPreferences();
 
@@ -209,7 +218,8 @@ Map<String, dynamic> getSettingConstants(Map<String, dynamic> userSettings) {
 
   Map<String, dynamic> userSettingsNew = {...userSettings};
   userSettingsNew["theme"] = themeSetting[userSettings["theme"]];
-  userSettingsNew["accentColor"] = HexColor(userSettings["accentColor"]);
+  userSettingsNew["accentColor"] =
+      HexColor(userSettings["accentColor"]).withOpacity(1);
   return userSettingsNew;
 }
 
@@ -273,6 +283,9 @@ void openLanguagePicker(BuildContext context) {
             initial: appStateSettings["locale"].toString(),
             displayFilter: languageDisplayFilter,
             onChanged: (value) async {
+              // Need to update this value first because our RootBundleAssetLoaderCustomLocaleLoader
+              // makes use of this value for some languages
+              appStateSettings["locale"] = value;
               if (value == "System") {
                 context.resetLocale();
               } else {
@@ -287,7 +300,7 @@ void openLanguagePicker(BuildContext context) {
               );
               await Future.delayed(Duration(milliseconds: 50));
               initializeLocalizedMonthNames();
-              Navigator.pop(context);
+              popRoute(context);
             },
           ),
         ],

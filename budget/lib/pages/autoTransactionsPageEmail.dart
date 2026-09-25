@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
-import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/pages/addEmailTemplate.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/editCategoriesPage.dart';
@@ -21,12 +20,11 @@ import 'package:budget/widgets/settingsContainers.dart';
 import 'package:budget/widgets/statusBox.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
-import 'package:budget/widgets/util/deepLinks.dart';
+import 'package:budget/widgets/util/appLinks.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:budget/main.dart';
 import 'package:provider/provider.dart';
-import '../functions.dart';
+import 'package:budget/functions.dart';
 import 'package:googleapis/gmail/v1.dart' as gMail;
 import 'package:html/parser.dart';
 import 'package:notification_listener_service/notification_event.dart';
@@ -134,30 +132,28 @@ Future queueTransactionFromMessage(String messageString,
       ? null
       : await database.getWalletInstanceOrNull(templateFound.walletFk);
 
-  if (navigatorKey.currentContext != null) {
-    if (willPushRoute) {
-      pushRoute(
-        navigatorKey.currentContext!,
-        AddTransactionPage(
-          useCategorySelectedIncome: true,
-          routesToPopAfterDelete: RoutesToPopAfterDelete.None,
-          selectedAmount: amountDouble,
-          selectedTitle: title,
-          selectedCategory: category,
-          startInitialAddTransactionSequence: false,
-          selectedWallet: wallet,
-          selectedDate: dateTime,
-        ),
-      );
-    } else {
-      processAddTransactionFromParams(navigatorKey.currentContext!, {
-        "title": title,
-        "categoryPk": category?.categoryPk,
-        "walletPk": wallet?.walletPk,
-        "amount": amountDouble.toString(),
-        "date": dateTime.toString(),
-      });
-    }
+  if (willPushRoute) {
+    pushRoute(
+      null,
+      AddTransactionPage(
+        useCategorySelectedIncome: true,
+        routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+        selectedAmount: amountDouble,
+        selectedTitle: title,
+        selectedCategory: category,
+        startInitialAddTransactionSequence: false,
+        selectedWallet: wallet,
+        selectedDate: dateTime,
+      ),
+    );
+  } else {
+    processAddTransactionFromParams(navigatorKey.currentContext!, {
+      "title": title,
+      "categoryPk": category?.categoryPk,
+      "walletPk": wallet?.walletPk,
+      "amount": amountDouble.toString(),
+      "date": dateTime.toString(),
+    });
   }
 }
 
@@ -881,7 +877,7 @@ class ScannerTemplateEntry extends StatelessWidget {
                       if (action == DeletePopupAction.Delete) {
                         await database.deleteScannerTemplate(
                             scannerTemplate.scannerTemplatePk);
-                        Navigator.pop(context);
+                        popRoute(context);
                         openSnackbar(
                           SnackbarMessage(
                             title: "Deleted " + scannerTemplate.templateName,

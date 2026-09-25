@@ -1,6 +1,5 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/pages/activityPage.dart';
 import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/pages/creditDebtTransactionsPage.dart';
@@ -27,6 +26,21 @@ import 'listItem.dart';
 
 String getChangelogString() {
   return """
+    < 5.3.5
+    When All Spending page opened from other means, correct date range applied
+    Improve performance of heatmap homepage section
+    Adjust popup heights and fix emoji category selection
+    Allow pattern unlock instead of just biometrics
+    New color picker
+    Preview when selecting background color for icons
+    When budget/loan/objective archived, it is unpinned
+    Add amount of times a transaction will repeat with a set end date
+    Heatmap homepage section first weekday setting
+    Fix heatmap missing blank days
+    Improve performance when switching the primary account if the currency remains unchanged
+    Consistent capitalization throughout interface
+    Update translations and fix incorrect country specific language loading
+    SDK upgrades; stability and performance improvements
     < 5.3.2
     First navigation tab can be customized
     Revamped About App page
@@ -40,7 +54,7 @@ String getChangelogString() {
     Improve performance for line graphs
     Include year in add transaction date if not the current year
     Edit username and toggle greeting message for top homepage banner
-    Adjust popup heights and fix emoji category selection
+    Fix translation for All Spending history period
     Fix local backups not saving app settings
     Fix CSV export for entries with a comma
     Fixed app link routing for (A) 12+
@@ -2441,7 +2455,7 @@ bool showChangelog(
   bool majorChangesOnly = false,
   Widget? extraWidget,
 }) {
-  String version = packageInfoGlobal.version;
+  String version = packageInfoGlobal?.version ?? "";
 
   List<Widget>? changelogPoints = getChangelogPointsWidgets(
     context,
@@ -2488,7 +2502,7 @@ List<Widget>? getChangelogPointsWidgets(BuildContext context,
     {bool forceShow = false, bool majorChangesOnly = false}) {
   String changelog = getChangelogString();
   Map<String, List<MajorChanges>> majorChanges = getMajorChanges();
-  String version = packageInfoGlobal.version;
+  String version = packageInfoGlobal?.version ?? "";
   int versionInt = parseVersionInt(version);
   int lastLoginVersionInt =
       parseVersionInt(appStateSettings["lastLoginVersion"]);
@@ -2500,14 +2514,17 @@ List<Widget>? getChangelogPointsWidgets(BuildContext context,
     int versionBookmark = versionInt;
     for (String string in changelog.split("\n")) {
       string = string.replaceFirst("    ", ""); // remove the indent
-      if (getPlatform() != PlatformOS.isIOS) {
-        string = string.replaceAll("(A)", "Android");
-        string = string.replaceAll("(i)", "iOS");
-      }
-      // Skip android changes on iOS
+
+      // Skip android changes on iOS, skip iOS changes on Android
       if (getPlatform() == PlatformOS.isIOS && string.contains(("(A)"))) {
         continue;
+      } else if (getPlatform() == PlatformOS.isAndroid &&
+          string.contains(("(i)"))) {
+        continue;
       }
+      string = string.replaceAll("(A)", "Android");
+      string = string.replaceAll("(i)", "iOS");
+
       if (string.startsWith("< ")) {
         if (forceShow) {
           changelogPoints.addAll(getAllMajorChangeWidgetsForVersion(
@@ -2586,8 +2603,8 @@ int parseVersionInt(String versionString) {
 }
 
 String getVersionString() {
-  String version = packageInfoGlobal.version;
-  String buildNumber = packageInfoGlobal.buildNumber;
+  String version = packageInfoGlobal?.version ?? "";
+  String buildNumber = packageInfoGlobal?.buildNumber ?? "";
   return "v" +
       version +
       "+" +

@@ -2,7 +2,6 @@ import 'package:budget/colors.dart';
 import 'package:budget/database/generatePreviewData.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/homePage/homePageHeatmap.dart';
 import 'package:budget/pages/homePage/homePageLineGraph.dart';
 import 'package:budget/pages/homePage/homePageNetWorth.dart';
@@ -18,22 +17,14 @@ import 'package:budget/pages/homePage/homePageAllSpendingSummary.dart';
 import 'package:budget/pages/editHomePage.dart';
 import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/pages/homePage/homePageCreditDebts.dart';
-import 'package:budget/pages/transactionFilters.dart';
-import 'package:budget/pages/walletDetailsPage.dart';
-import 'package:budget/struct/databaseGlobal.dart';
-import 'package:budget/struct/initializeNotifications.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
-import 'package:budget/widgets/framework/popupFramework.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
-import 'package:budget/widgets/openPopup.dart';
-import 'package:budget/widgets/pieChart.dart';
 import 'package:budget/widgets/ratingPopup.dart';
 import 'package:budget/widgets/selectedTransactionsAppBar.dart';
-import 'package:budget/widgets/util/deepLinks.dart';
 import 'package:budget/widgets/util/keepAliveClientMixin.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/transactionEntry/swipeToSelectTransactions.dart';
@@ -47,9 +38,6 @@ import 'package:budget/widgets/linearGradientFadedEdges.dart';
 import 'package:budget/widgets/pullDownToRefreshSync.dart';
 import 'package:budget/widgets/util/rightSideClipper.dart';
 import 'package:flutter/services.dart';
-import 'package:home_widget/home_widget.dart';
-import 'package:provider/provider.dart';
-import 'package:budget/pages/addWalletPage.dart';
 import 'package:budget/widgets/util/checkWidgetLaunch.dart';
 import 'package:flutter/foundation.dart';
 
@@ -148,7 +136,7 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       "homePageTransactionsListIncomeAndExpenseOnly"] ==
                   true
               ? null
-              : ["all".tr(), "outgoing".tr(), "incoming".tr()],
+              : ["all", "outgoing", "incoming"],
           useHorizontalPaddingConstrained: false,
           onSelected: (index) {
             setState(() {
@@ -167,6 +155,50 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   SizedBox(height: 8),
                   HomeTransactions(
                       selectedSlidingSelector: selectedSlidingSelector),
+                  SizedBox(height: 12),
+                  Container(
+                    margin: const EdgeInsetsDirectional.symmetric(
+                      horizontal: 0,
+                    ),
+                    padding:
+                        const EdgeInsetsDirectional.fromSTEB(18, 18, 18, 18),
+                    decoration: BoxDecoration(
+                      color: getColor(context, "lightDarkAccentHeavyLight"),
+                      borderRadius: BorderRadiusDirectional.circular(18),
+                      boxShadow: boxShadowCheck(boxShadowGeneral(context)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Chi tiêu hôm nay",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: getColor(context, "black"),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          "350.000 ₫",
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            color: getColor(context, "black"),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "So với hôm qua: +12%",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   SizedBox(height: 7),
                   Center(
                     child: ViewAllTransactionsButton(),
@@ -265,6 +297,7 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
             Scaffold(
               resizeToAvoidBottomInset: false,
               body: ScrollbarWrap(
+                scrollController: _scrollController,
                 child: ListView(
                   controller: _scrollController,
                   children: [
@@ -306,7 +339,9 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       ],
                     ),
                     // Wipe all remaining pixels off - sometimes graphics artifacts are left behind
-                    Container(height: 1, color: Theme.of(context).canvasColor),
+                    Container(
+                        height: 1,
+                        color: Theme.of(context).colorScheme.background),
 
                     showWelcomeBanner
                         ? ConstrainedBox(
@@ -416,7 +451,9 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               : 73,
                     ),
                     // Wipe all remaining pixels off - sometimes graphics artifacts are left behind
-                    Container(height: 1, color: Theme.of(context).canvasColor),
+                    Container(
+                        height: 1,
+                        color: Theme.of(context).colorScheme.background),
                   ],
                 ),
               ),

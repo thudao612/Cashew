@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'dart:ui' as ui;
-
 import 'package:budget/database/tables.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/subscriptionsPage.dart';
@@ -17,7 +16,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
-import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import './colors.dart';
 import 'package:flutter/material.dart';
@@ -60,6 +59,16 @@ extension DateUtils on DateTime {
       millisecond ?? this.millisecond,
       microsecond ?? this.microsecond,
     );
+  }
+
+  DateTime justDay(
+      {int yearOffset = 0, int monthOffset = 0, int dayOffset = 0}) {
+    return DateTime(
+        this.year + yearOffset, this.month + monthOffset, this.day + dayOffset);
+  }
+
+  DateTime firstDayOfMonth() {
+    return DateTime(this.year, this.month, 1);
   }
 }
 
@@ -371,19 +380,11 @@ String getMeridiemString(DateTime dateTime) {
 
 checkYesterdayTodayTomorrow(DateTime date) {
   DateTime now = DateTime.now();
-  if (date.day == now.day && date.month == now.month && date.year == now.year) {
+  if (date.justDay() == now.justDay()) {
     return "today".tr();
-  }
-  DateTime tomorrow = DateTime(now.year, now.month, now.day + 1);
-  if (date.day == tomorrow.day &&
-      date.month == tomorrow.month &&
-      date.year == tomorrow.year) {
+  } else if (date.justDay() == now.justDay(dayOffset: 1)) {
     return "tomorrow".tr();
-  }
-  DateTime yesterday = now.subtract(Duration(days: 1));
-  if (date.day == yesterday.day &&
-      date.month == yesterday.month &&
-      date.year == yesterday.year) {
+  } else if (date.justDay() == now.justDay(dayOffset: -1)) {
     return "yesterday".tr();
   }
 
@@ -582,25 +583,17 @@ DateTimeRange getBudgetDate(Budget budget, DateTime currentDate) {
     DateTime currentDateLoopStart = budget.startDate;
     late DateTime currentDateLoopEnd;
     if (budget.reoccurrence == BudgetReoccurence.daily) {
-      currentDateLoopEnd = DateTime(
-          currentDateLoopStart.year,
-          currentDateLoopStart.month,
-          currentDateLoopStart.day + budget.periodLength);
+      currentDateLoopEnd =
+          currentDateLoopStart.justDay(dayOffset: budget.periodLength);
     } else if (budget.reoccurrence == BudgetReoccurence.monthly) {
-      currentDateLoopEnd = DateTime(
-          currentDateLoopStart.year,
-          currentDateLoopStart.month + budget.periodLength,
-          currentDateLoopStart.day);
+      currentDateLoopEnd =
+          currentDateLoopStart.justDay(monthOffset: budget.periodLength);
     } else if (budget.reoccurrence == BudgetReoccurence.yearly) {
-      currentDateLoopEnd = DateTime(
-          currentDateLoopStart.year + budget.periodLength,
-          currentDateLoopStart.month,
-          currentDateLoopStart.day);
+      currentDateLoopEnd =
+          currentDateLoopStart.justDay(yearOffset: budget.periodLength);
     } else if (budget.reoccurrence == BudgetReoccurence.weekly) {
-      currentDateLoopEnd = DateTime(
-          currentDateLoopStart.year,
-          currentDateLoopStart.month,
-          currentDateLoopStart.day + budget.periodLength * 7);
+      currentDateLoopEnd =
+          currentDateLoopStart.justDay(dayOffset: budget.periodLength * 7);
     }
     // print("START");
     // print(currentDate);
@@ -621,46 +614,29 @@ DateTimeRange getBudgetDate(Budget budget, DateTime currentDate) {
                 currentDateLoopEnd.millisecondsSinceEpoch) {
           return DateTimeRange(
             start: currentDateLoopStart,
-            end: DateTime(currentDateLoopEnd.year, currentDateLoopEnd.month,
-                currentDateLoopEnd.day - 1),
+            end: currentDateLoopEnd.justDay(dayOffset: -1),
           );
         }
         if (budget.reoccurrence == BudgetReoccurence.daily) {
-          currentDateLoopStart = DateTime(
-              currentDateLoopStart.year,
-              currentDateLoopStart.month,
-              currentDateLoopStart.day - budget.periodLength);
-          currentDateLoopEnd = DateTime(
-              currentDateLoopEnd.year,
-              currentDateLoopEnd.month,
-              currentDateLoopEnd.day - budget.periodLength);
+          currentDateLoopStart =
+              currentDateLoopStart.justDay(dayOffset: -budget.periodLength);
+          currentDateLoopEnd =
+              currentDateLoopEnd.justDay(dayOffset: -budget.periodLength);
         } else if (budget.reoccurrence == BudgetReoccurence.monthly) {
-          currentDateLoopStart = DateTime(
-              currentDateLoopStart.year,
-              currentDateLoopStart.month - budget.periodLength,
-              currentDateLoopStart.day);
-          currentDateLoopEnd = DateTime(
-              currentDateLoopEnd.year,
-              currentDateLoopEnd.month - budget.periodLength,
-              currentDateLoopEnd.day);
+          currentDateLoopStart =
+              currentDateLoopStart.justDay(monthOffset: -budget.periodLength);
+          currentDateLoopEnd =
+              currentDateLoopEnd.justDay(monthOffset: -budget.periodLength);
         } else if (budget.reoccurrence == BudgetReoccurence.yearly) {
-          currentDateLoopStart = DateTime(
-              currentDateLoopStart.year - budget.periodLength,
-              currentDateLoopStart.month,
-              currentDateLoopStart.day);
-          currentDateLoopEnd = DateTime(
-              currentDateLoopEnd.year - budget.periodLength,
-              currentDateLoopEnd.month,
-              currentDateLoopEnd.day);
+          currentDateLoopStart =
+              currentDateLoopStart.justDay(yearOffset: -budget.periodLength);
+          currentDateLoopEnd =
+              currentDateLoopEnd.justDay(yearOffset: -budget.periodLength);
         } else if (budget.reoccurrence == BudgetReoccurence.weekly) {
-          currentDateLoopStart = DateTime(
-              currentDateLoopStart.year,
-              currentDateLoopStart.month,
-              currentDateLoopStart.day - budget.periodLength * 7);
-          currentDateLoopEnd = DateTime(
-              currentDateLoopEnd.year,
-              currentDateLoopEnd.month,
-              currentDateLoopEnd.day - budget.periodLength * 7);
+          currentDateLoopStart =
+              currentDateLoopStart.justDay(dayOffset: -budget.periodLength * 7);
+          currentDateLoopEnd =
+              currentDateLoopEnd.justDay(dayOffset: -budget.periodLength * 7);
         }
       }
     } else if (currentDate.millisecondsSinceEpoch >=
@@ -675,54 +651,37 @@ DateTimeRange getBudgetDate(Budget budget, DateTime currentDate) {
                 currentDateLoopEnd.millisecondsSinceEpoch) {
           return DateTimeRange(
             start: currentDateLoopStart,
-            end: DateTime(currentDateLoopEnd.year, currentDateLoopEnd.month,
-                currentDateLoopEnd.day - 1),
+            end: currentDateLoopEnd.justDay(dayOffset: -1),
           );
         }
         if (budget.reoccurrence == BudgetReoccurence.daily) {
-          currentDateLoopStart = DateTime(
-              currentDateLoopStart.year,
-              currentDateLoopStart.month,
-              currentDateLoopStart.day + budget.periodLength);
-          currentDateLoopEnd = DateTime(
-              currentDateLoopEnd.year,
-              currentDateLoopEnd.month,
-              currentDateLoopEnd.day + budget.periodLength);
+          currentDateLoopStart =
+              currentDateLoopStart.justDay(dayOffset: budget.periodLength);
+          currentDateLoopEnd =
+              currentDateLoopEnd.justDay(dayOffset: budget.periodLength);
         } else if (budget.reoccurrence == BudgetReoccurence.monthly) {
-          currentDateLoopStart = DateTime(
-              currentDateLoopStart.year,
-              currentDateLoopStart.month + budget.periodLength,
-              currentDateLoopStart.day);
-          currentDateLoopEnd = DateTime(
-              currentDateLoopEnd.year,
-              currentDateLoopEnd.month + budget.periodLength,
-              currentDateLoopEnd.day);
+          currentDateLoopStart =
+              currentDateLoopStart.justDay(monthOffset: budget.periodLength);
+          currentDateLoopEnd =
+              currentDateLoopEnd.justDay(monthOffset: budget.periodLength);
         } else if (budget.reoccurrence == BudgetReoccurence.yearly) {
-          currentDateLoopStart = DateTime(
-              currentDateLoopStart.year + budget.periodLength,
-              currentDateLoopStart.month,
-              currentDateLoopStart.day);
-          currentDateLoopEnd = DateTime(
-              currentDateLoopEnd.year + budget.periodLength,
-              currentDateLoopEnd.month,
-              currentDateLoopEnd.day);
+          currentDateLoopStart =
+              currentDateLoopStart.justDay(yearOffset: budget.periodLength);
+          currentDateLoopEnd =
+              currentDateLoopEnd.justDay(yearOffset: budget.periodLength);
         } else if (budget.reoccurrence == BudgetReoccurence.weekly) {
-          currentDateLoopStart = DateTime(
-              currentDateLoopStart.year,
-              currentDateLoopStart.month,
-              currentDateLoopStart.day + budget.periodLength * 7);
-          currentDateLoopEnd = DateTime(
-              currentDateLoopEnd.year,
-              currentDateLoopEnd.month,
-              currentDateLoopEnd.day + budget.periodLength * 7);
+          currentDateLoopStart =
+              currentDateLoopStart.justDay(dayOffset: budget.periodLength * 7);
+          currentDateLoopEnd =
+              currentDateLoopEnd.justDay(dayOffset: budget.periodLength * 7);
         }
       }
     }
   }
   return DateTimeRange(
-      start: budget.startDate,
-      end: DateTime(budget.startDate.year + 1, budget.startDate.month,
-          budget.startDate.day));
+    start: budget.startDate,
+    end: budget.startDate.justDay(yearOffset: 1),
+  );
 }
 
 String getWordedNumber(
@@ -994,7 +953,7 @@ void restartAppPopup(context,
   } else {
     // Pop all routes, select home tab
     RestartApp.restartApp(context);
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    popAllRoutes(context);
     Future.delayed(Duration(milliseconds: 100), () {
       PageNavigationFramework.changePage(context, 0, switchNavbar: true);
     });
@@ -1028,9 +987,46 @@ class CustomMaterialPageRoute extends MaterialPageRoute {
         );
 }
 
-Future<dynamic> pushRoute(BuildContext context, Widget page,
+popRoute<T extends Object?>(BuildContext? context, [T? result]) {
+  BuildContext? contextToPop = context;
+  if (context == null) contextToPop = navigatorKey.currentContext;
+  if (contextToPop == null) return;
+  Navigator.of(contextToPop, rootNavigator: false).pop(result);
+  // bool hasPopped = false;
+  // Navigator.of(contextToPop, rootNavigator: true).popUntil((route) {
+  //   if (route.isFirst) return true;
+  //   if (hasPopped == false) {
+  //     hasPopped = true;
+  //     return route.isFirst;
+  //   } else {
+  //     return true;
+  //   }
+  // });
+}
+
+Future<bool> maybePopRoute<T extends Object?>(BuildContext? context,
+    [T? result]) async {
+  BuildContext? contextToPop = context;
+  if (context == null) contextToPop = navigatorKey.currentContext;
+  if (contextToPop == null) return false;
+  return Navigator.of(contextToPop, rootNavigator: false).maybePop(result);
+}
+
+popAllRoutes(BuildContext? context) {
+  BuildContext? contextToPop = context;
+  if (context == null) contextToPop = navigatorKey.currentContext;
+  if (contextToPop == null) return;
+  Navigator.of(contextToPop, rootNavigator: false)
+      .popUntil((route) => route.isFirst);
+}
+
+Future<dynamic> pushRoute(BuildContext? context, Widget page,
     {String? routeName}) async {
-  minimizeKeyboard(context);
+  BuildContext? contextToPush = context;
+  if (context == null) contextToPush = navigatorKey.currentContext;
+  if (contextToPush == null) return;
+
+  minimizeKeyboard(contextToPush);
   // if (appStateSettings["iOSNavigation"]) {
   //   return await Navigator.push(
   //     context,
@@ -1039,9 +1035,9 @@ Future<dynamic> pushRoute(BuildContext context, Widget page,
   // }
 
   return await Navigator.push(
-    context,
+    contextToPush,
     PageRouteBuilder(
-      opaque: false,
+      opaque: true,
       transitionDuration: Duration(milliseconds: 300),
       reverseTransitionDuration: Duration(milliseconds: 125),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -1165,10 +1161,8 @@ String getDomainNameFromURL(String text) {
 }
 
 String cleanupNoteStringWithURLs(String text) {
-  RegExp regExp = RegExp(
-      r'^(?:https?:\/\/)?(?:[^@\/\n]+@)?(?:www\.)?([^:\/?\n]+)',
-      multiLine: true,
-      caseSensitive: false);
+  RegExp regExp = RegExp(r'https?:\/\/(?:www\.)?\S+(?=\s)',
+      multiLine: true, caseSensitive: false);
 
   Iterable<Match> matches = regExp.allMatches(text);
 
@@ -1180,15 +1174,16 @@ String cleanupNoteStringWithURLs(String text) {
           match.group(0)!, getDomainNameFromURL(match.group(0)!));
   }
 
-  return modifiedText;
+  return modifiedText.trim();
 }
 
-void openUrl(String link) async {
+Future<bool> openUrl(String link) async {
   if (await canLaunchUrl(Uri.parse(link)))
-    await launchUrl(
+    return await launchUrl(
       Uri.parse(link),
       mode: LaunchMode.externalApplication,
     );
+  return false;
 }
 
 List<String> popularCurrencies = [
@@ -1244,6 +1239,19 @@ void copyToClipboard(String text,
     );
 }
 
+Future shareToClipboard(String text, {required BuildContext context}) async {
+  try {
+    final box = context.findRenderObject() as RenderBox?;
+    await Share.share(
+      text,
+      sharePositionOrigin: box!.localToGlobal(Offset.zero) & box.size,
+    );
+  } catch (e) {
+    print("There was an error sharing: " + e.toString());
+    copyToClipboard(text);
+  }
+}
+
 Future<String?> readClipboard({bool showSnackbar = true}) async {
   HapticFeedback.mediumImpact();
   final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
@@ -1259,6 +1267,35 @@ Future<String?> readClipboard({bool showSnackbar = true}) async {
       ),
     );
   return clipboardText;
+}
+
+Future<double?> readAmountFromClipboard({bool showSnackbar = true}) async {
+  String? clipboardText = await readClipboard(showSnackbar: false);
+  double? amount = getAmountFromString(clipboardText ?? "");
+  if (showSnackbar) {
+    if (amount != null) {
+      openSnackbar(
+        SnackbarMessage(
+          title: "pasted-from-clipboard".tr(),
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.paste_outlined
+              : Icons.paste_rounded,
+          timeout: Duration(milliseconds: 2500),
+        ),
+      );
+    } else {
+      openSnackbar(
+        SnackbarMessage(
+          title: "clipboard-error".tr(),
+          description: "no-value".tr(),
+          icon: appStateSettings["outlinedIcons"]
+              ? Icons.assignment_late_outlined
+              : Icons.assignment_late_rounded,
+        ),
+      );
+    }
+  }
+  return amount;
 }
 
 double? getAmountFromString(String inputString) {
@@ -1315,8 +1352,8 @@ PlatformOS? getPlatform({bool ignoreEmulation = false}) {
   return null;
 }
 
-dynamic nullIfIndexOutOfRange(List list, index) {
-  if (list.length - 1 < index || index < 0) {
+T? nullIfIndexOutOfRange<T>(List<T> list, int index) {
+  if (index < 0 || index >= list.length) {
     return null;
   } else {
     return list[index];
@@ -1377,13 +1414,21 @@ String absoluteZeroString(String number) {
 
 // Will only include the currency if the user has wallets of different currencies
 // e.g. Wallet (USD)
-String getWalletStringName(AllWallets allWallets, TransactionWallet wallet) {
+String getWalletStringName(AllWallets allWallets, TransactionWallet? wallet) {
+  if (wallet == null) return "";
   if (wallet.name == wallet.currency.toString().toUpperCase()) {
     return wallet.currency.toString().toUpperCase();
-  } else if (allWallets.allContainSameCurrency() == true) {
-    return wallet.name;
   } else {
-    return wallet.name + " (" + wallet.currency.toString().toUpperCase() + ")";
+    bool showCurrencyLabel = appStateSettings["showCurrencyLabel"] == true &&
+        allWallets.allContainSameCurrency() == false;
+    if (showCurrencyLabel) {
+      return wallet.name +
+          " (" +
+          wallet.currency.toString().toUpperCase() +
+          ")";
+    } else {
+      return wallet.name;
+    }
   }
 }
 

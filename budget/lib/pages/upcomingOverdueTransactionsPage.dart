@@ -24,16 +24,14 @@ import 'package:budget/widgets/slidingSelectorIncomeExpense.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/transactionEntry/transactionEntry.dart';
-import 'package:budget/widgets/transactionEntry/transactionEntryAmount.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:implicitly_animated_reorderable_list/implicitly_animated_reorderable_list.dart';
 import 'package:implicitly_animated_reorderable_list/transitions.dart';
 import 'package:provider/provider.dart';
-import 'package:budget/widgets/countNumber.dart';
 import 'package:budget/widgets/textInput.dart';
 
-import '../widgets/transactionEntry/incomeAmountArrow.dart';
+import 'package:budget/widgets/transactionEntry/incomeAmountArrow.dart';
 
 class UpcomingOverdueTransactions extends StatefulWidget {
   const UpcomingOverdueTransactions(
@@ -98,8 +96,8 @@ class UpcomingOverdueTransactionsState
                 id: "settings",
                 label: "settings".tr(),
                 icon: appStateSettings["outlinedIcons"]
-                    ? Icons.settings_outlined
-                    : Icons.settings_rounded,
+                    ? Icons.more_vert_outlined
+                    : Icons.more_vert_rounded,
                 action: () {
                   openBottomSheet(
                       context,
@@ -289,6 +287,10 @@ class UpcomingOverdueTransactionsState
                             transaction: item,
                             listID: pageId,
                           ),
+                          if (index == (snapshot.data?.length ?? 0) - 1)
+                            HorizontalBreak(
+                                padding: EdgeInsetsDirectional.only(
+                                    top: 4, bottom: 6)),
                         ],
                       ),
                     );

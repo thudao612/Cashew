@@ -1,40 +1,19 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addBudgetPage.dart';
-import 'package:budget/pages/addWalletPage.dart';
-import 'package:budget/pages/editHomePage.dart';
-import 'package:budget/pages/homePage/homePageLineGraph.dart';
-import 'package:budget/pages/transactionsSearchPage.dart';
-import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
-import 'package:budget/widgets/animatedExpanded.dart';
-import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
-import 'package:budget/widgets/iconButtonScaled.dart';
-import 'package:budget/widgets/incomeExpenseTabSelector.dart';
-import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
-import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/outlinedButtonStacked.dart';
 import 'package:budget/widgets/radioItems.dart';
 import 'package:budget/widgets/selectAmount.dart';
-import 'package:budget/widgets/selectedTransactionsAppBar.dart';
-import 'package:budget/widgets/categoryEntry.dart';
-import 'package:budget/widgets/framework/pageFramework.dart';
-import 'package:budget/widgets/pieChart.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/tappableTextEntry.dart';
 import 'package:budget/widgets/textWidgets.dart';
-import 'package:budget/widgets/transactionEntries.dart';
-import 'package:budget/widgets/transactionEntry/transactionEntry.dart';
-import 'package:budget/widgets/transactionsAmountBox.dart';
 import 'package:budget/widgets/util/showDatePicker.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:budget/colors.dart';
-import 'package:budget/widgets/viewAllTransactionsButton.dart';
-import 'package:provider/provider.dart';
-
 import 'selectDateRange.dart';
 
 enum CycleType {
@@ -246,7 +225,7 @@ class _CyclePeriodSelectionState extends State<CyclePeriodSelection> {
             1;
     selectedStartDate = DateTime.tryParse(appStateSettings[
             "cycleStartDate" + widget.cycleSettingsExtension]) ??
-        DateTime(DateTime.now().year, DateTime.now().month, 1);
+        DateTime.now().firstDayOfMonth();
     selectedRecurrence = enumRecurrence[BudgetReoccurence.values[
             appStateSettings[
                 "cycleReoccurrence" + widget.cycleSettingsExtension]]] ??
@@ -272,7 +251,7 @@ class _CyclePeriodSelectionState extends State<CyclePeriodSelection> {
             setSelectedPeriodLength(amount);
           },
           next: () async {
-            Navigator.pop(context);
+            popRoute(context);
           },
           nextLabel: "set-period-length".tr(),
         ),
@@ -333,7 +312,7 @@ class _CyclePeriodSelectionState extends State<CyclePeriodSelection> {
                 selectedRecurrenceDisplay = namesRecurrence[value];
               }
             });
-            Navigator.of(context).pop();
+            popRoute(context);
           },
         ),
       ),
@@ -556,7 +535,7 @@ DateTime? getStartDateOfSelectedCustomPeriod(
   DateTimeRange? forcedDateTimeRange,
 }) {
   if (forcedDateTimeRange != null) {
-    return forcedDateTimeRange.start;
+    return forcedDateTimeRange.start.justDay();
   }
   CycleType selectedPeriodType = CycleType.values[
       appStateSettings["selectedPeriodCycleType" + cycleSettingsExtension] ??
@@ -565,9 +544,8 @@ DateTime? getStartDateOfSelectedCustomPeriod(
     return null;
   } else if (selectedPeriodType == CycleType.cycle) {
     DateTimeRange budgetRange = getCycleDateTimeRange(cycleSettingsExtension);
-    DateTime startDate = DateTime(
-        budgetRange.start.year, budgetRange.start.month, budgetRange.start.day);
-    return startDate;
+    DateTime startDate = budgetRange.start;
+    return startDate.justDay();
   } else if (selectedPeriodType == CycleType.pastDays) {
     DateTime startDate = DateTime.now().subtract(Duration(
         days: (appStateSettings[
@@ -575,13 +553,13 @@ DateTime? getStartDateOfSelectedCustomPeriod(
             0)));
     if (startDate.year <= 1900) return DateTime(1900);
     if (startDate.isAfter(DateTime.now())) return DateTime(1900);
-    return startDate;
+    return startDate.justDay();
   } else if (selectedPeriodType == CycleType.dateRange) {
     DateTime startDate = DateTime.tryParse(appStateSettings[
                 "customPeriodStartDate" + cycleSettingsExtension] ??
             "") ??
         DateTime.now();
-    return startDate;
+    return startDate.justDay();
   }
   return null;
 }
@@ -591,7 +569,7 @@ DateTime? getEndDateOfSelectedCustomPeriod(
   DateTimeRange? forcedDateTimeRange,
 }) {
   if (forcedDateTimeRange != null) {
-    return forcedDateTimeRange.end;
+    return forcedDateTimeRange.end.justDay();
   }
 
   CycleType selectedPeriodType = CycleType.values[
@@ -602,15 +580,13 @@ DateTime? getEndDateOfSelectedCustomPeriod(
   // Therefore, do not add this code in!
   if (selectedPeriodType == CycleType.cycle) {
     DateTimeRange budgetRange = getCycleDateTimeRange(cycleSettingsExtension);
-    DateTime endDate = DateTime(
-        budgetRange.end.year, budgetRange.end.month, budgetRange.end.day);
-    return endDate;
+    DateTime endDate = budgetRange.end.justDay();
+    return endDate.justDay();
   }
 
   if (selectedPeriodType == CycleType.pastDays) {
-    DateTime endDate =
-        DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-    return endDate;
+    DateTime endDate = DateTime.now().justDay();
+    return endDate.justDay();
   }
 
   if (selectedPeriodType == CycleType.dateRange) {
@@ -686,7 +662,7 @@ class _PastDaysSelectionState extends State<PastDaysSelection> {
             setSelectedPeriodLength(amount);
           },
           next: () async {
-            Navigator.pop(context);
+            popRoute(context);
           },
           nextLabel: "set-period-length".tr(),
         ),

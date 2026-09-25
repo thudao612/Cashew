@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:budget/colors.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/main.dart';
@@ -23,9 +21,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:transparent_image/transparent_image.dart';
-
-import '../widgets/extraInfoBoxes.dart';
-import '../widgets/outlinedButtonStacked.dart';
+import 'package:budget/widgets/extraInfoBoxes.dart';
+import 'package:budget/widgets/outlinedButtonStacked.dart';
 
 class AccountsPage extends StatefulWidget {
   const AccountsPage({Key? key}) : super(key: key);
@@ -63,7 +60,7 @@ class AccountsPageState extends State<AccountsPage> {
       ),
     );
     return PageFramework(
-      horizontalPadding: getHorizontalPaddingConstrained(context),
+      horizontalPaddingConstrained: true,
       dragDownToDismiss: true,
       expandedHeight: 56,
       title: getPlatform() == PlatformOS.isIOS
@@ -103,7 +100,7 @@ class AccountsPageState extends State<AccountsPage> {
                           "https://pub.dev/packages/google_sign_in_web#differences-between-google-identity-services-sdk-and-google-sign-in-for-web-sdk");
                     },
                     onSubmit: () {
-                      Navigator.pop(context);
+                      popRoute(context);
                     },
                     onSubmitLabel: "ok".tr(),
                   );
@@ -129,13 +126,7 @@ class AccountsPageState extends State<AccountsPage> {
                             : MoreIcons.google,
                         isExpanded: false,
                         onTap: () async {
-                          loadingIndeterminateKey.currentState
-                              ?.setVisibility(true);
-                          try {
-                            await signInAndSync(context, next: () {});
-                          } catch (e) {
-                            print("Error signing in: " + e.toString());
-                          }
+                          await signInAndSync(context, next: () {});
                         },
                       )
                     ],
@@ -201,7 +192,7 @@ class AccountsPageState extends State<AccountsPage> {
                             final result = await signOutGoogle();
                             if (result == true) {
                               if (getIsFullScreen(context) == false) {
-                                Navigator.maybePop(context);
+                                maybePopRoute(context);
                                 settingsPageStateKey.currentState
                                     ?.refreshState();
                               } else {
@@ -232,6 +223,10 @@ class AccountsPageState extends State<AccountsPage> {
                                     iconData: appStateSettings["outlinedIcons"]
                                         ? Icons.cloud_upload_outlined
                                         : Icons.cloud_upload_rounded,
+                                    customIconBuilder: (icon) => BouncingWidget(
+                                      animate: currentlyExporting,
+                                      child: icon,
+                                    ),
                                     onTap: () async {
                                       setState(() {
                                         currentlyExporting = true;
@@ -258,7 +253,7 @@ class AccountsPageState extends State<AccountsPage> {
                                   await chooseBackup(context);
                                 },
                               ),
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -347,7 +342,8 @@ class AccountsPageState extends State<AccountsPage> {
                       //       },
                       //     ),
                       //   ),
-                      getPlatform() == PlatformOS.isIOS
+                      getPlatform() == PlatformOS.isIOS &&
+                              appStateSettings["showExtraInfoText"] != false
                           ? Padding(
                               padding: const EdgeInsetsDirectional.symmetric(
                                   vertical: 20, horizontal: 7),
@@ -421,6 +417,17 @@ class BackupsCloudBackupButton extends StatelessWidget {
   }
 }
 
+class EnableSignInWithGoogleFlyIn extends StatelessWidget {
+  const EnableSignInWithGoogleFlyIn({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    if (appStateSettings["enableGoogleLoginFlyIn"] != true ||
+        getIsFullScreen(context) == false) return SizedBox.shrink();
+    return const SignInWithGoogleFlyIn();
+  }
+}
+
 class SignInWithGoogleFlyIn extends StatefulWidget {
   const SignInWithGoogleFlyIn({super.key});
 
@@ -429,13 +436,32 @@ class SignInWithGoogleFlyIn extends StatefulWidget {
 }
 
 class _SignInWithGoogleFlyInState extends State<SignInWithGoogleFlyIn> {
-  bool hide = false;
+  bool hide = true;
+
+  @override
+  void initState() {
+    checkCloudFunctionsStatus();
+    super.initState();
+  }
+
+  void checkCloudFunctionsStatus() {
+    Future.delayed(Duration(seconds: 1), () {
+      if (!runningCloudFunctions && entireAppLoaded) {
+        setState(() {
+          hide = false;
+        });
+      } else {
+        checkCloudFunctionsStatus();
+      }
+    });
+  }
+
+  bool get shouldExpand => !hide && googleUser == null;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding:
-          const EdgeInsetsDirectional.symmetric(horizontal: 22, vertical: 20),
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 22),
       child: SlideFadeTransition(
         animate: true,
         animationDuration: Duration(milliseconds: 1700),
@@ -443,114 +469,122 @@ class _SignInWithGoogleFlyInState extends State<SignInWithGoogleFlyIn> {
         delayStart: Duration(milliseconds: 1900),
         offset: -0.5,
         child: AnimatedExpanded(
-          expand: !hide,
-          child: Align(
-            alignment: AlignmentDirectional.topEnd,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: 400),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadiusDirectional.all(Radius.circular(13)),
-                  color: getColor(context, "lightDarkAccentHeavyLight"),
-                  boxShadow: boxShadowCheck(boxShadowSharp(context)),
-                ),
-                child: Tappable(
-                  onTap: () async {
-                    await signInGoogle();
-                    setState(() {
-                      hide = true;
-                    });
-                  },
-                  borderRadius: 13,
-                  color: dynamicPastel(
-                    context,
-                    Theme.of(context).colorScheme.secondaryContainer,
-                    amount: 0.6,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.only(
-                            start: 25,
-                            end: 15,
-                            top: 15,
-                            bottom: 15,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
+          expand: shouldExpand,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Align(
+                alignment: AlignmentDirectional.topEnd,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: 400),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius:
+                          BorderRadiusDirectional.all(Radius.circular(13)),
+                      color: getColor(context, "lightDarkAccentHeavyLight"),
+                      boxShadow: boxShadowCheck(boxShadowSharp(context)),
+                    ),
+                    child: Tappable(
+                      onTap: () async {
+                        await signInGoogle();
+                        setState(() {
+                          hide = true;
+                        });
+                      },
+                      borderRadius: 13,
+                      color: dynamicPastel(
+                        context,
+                        Theme.of(context).colorScheme.secondaryContainer,
+                        amount: 0.6,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                start: 25,
+                                end: 15,
+                                top: 15,
+                                bottom: 15,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Icon(
-                                    MoreIcons.google,
-                                    size: 25,
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        MoreIcons.google,
+                                        size: 25,
+                                      ),
+                                      SizedBox(width: 10),
+                                      TextFont(
+                                        text: "sign-in-with-google".tr(),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ],
                                   ),
-                                  SizedBox(width: 10),
-                                  TextFont(
-                                    text: "sign-in-with-google".tr(),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                                  Padding(
+                                    padding: const EdgeInsetsDirectional.only(
+                                        start: 18.0),
+                                    child: IconButtonScaled(
+                                      iconData:
+                                          appStateSettings["outlinedIcons"]
+                                              ? Icons.close_outlined
+                                              : Icons.close_rounded,
+                                      iconSize: 18,
+                                      scale: 1.5,
+                                      onTap: () async {
+                                        setState(() {
+                                          hide = true;
+                                        });
+                                      },
+                                    ),
                                   ),
                                 ],
                               ),
-                              Padding(
-                                padding: const EdgeInsetsDirectional.only(
-                                    start: 18.0),
-                                child: IconButtonScaled(
-                                  iconData: appStateSettings["outlinedIcons"]
-                                      ? Icons.close_outlined
-                                      : Icons.close_rounded,
-                                  iconSize: 18,
-                                  scale: 1.5,
-                                  onTap: () async {
-                                    setState(() {
-                                      hide = true;
-                                    });
-                                  },
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
+                          HorizontalBreak(
+                            padding: EdgeInsetsDirectional.zero,
+                            color: dynamicPastel(
+                              context,
+                              Theme.of(context).colorScheme.secondaryContainer,
+                              amount: 0.1,
+                              inverse: true,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsetsDirectional.symmetric(
+                                horizontal: 22, vertical: 12),
+                            child: Button(
+                              label: "Continue with Google",
+                              onTap: () async {
+                                await signInGoogle();
+                                setState(() {
+                                  hide = true;
+                                });
+                              },
+                              color: Theme.of(context).colorScheme.primary,
+                              textColor:
+                                  Theme.of(context).colorScheme.onPrimary,
+                              borderRadius: 5,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsetsDirectional.only(
+                                start: 22, end: 22, bottom: 22),
+                            child: TextFont(
+                              text: "onboarding-info-3".tr(),
+                              maxLines: 10,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
                       ),
-                      HorizontalBreak(
-                        padding: EdgeInsetsDirectional.zero,
-                        color: dynamicPastel(
-                          context,
-                          Theme.of(context).colorScheme.secondaryContainer,
-                          amount: 0.1,
-                          inverse: true,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsetsDirectional.symmetric(
-                            horizontal: 22, vertical: 12),
-                        child: Button(
-                          label: "Continue with Google",
-                          onTap: () async {
-                            await signInGoogle();
-                            setState(() {
-                              hide = true;
-                            });
-                          },
-                          color: Theme.of(context).colorScheme.primary,
-                          textColor: Theme.of(context).colorScheme.onPrimary,
-                          borderRadius: 5,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsetsDirectional.only(
-                            start: 22, end: 22, bottom: 22),
-                        child: TextFont(
-                          text: "onboarding-info-3".tr(),
-                          maxLines: 10,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),

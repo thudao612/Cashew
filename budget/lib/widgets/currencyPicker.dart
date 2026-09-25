@@ -1,11 +1,10 @@
 import 'package:budget/colors.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/pages/exchangeRatesPage.dart';
+import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/noResults.dart';
-import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textInput.dart';
@@ -163,12 +162,12 @@ class _CurrencyPickerState extends State<CurrencyPicker> {
                                   ? Icons.info_outlined
                                   : Icons.info_outline_rounded,
                               onCancel: () {
-                                Navigator.pop(context);
+                                popRoute(context);
                               },
                               onCancelLabel: "ok".tr(),
                               onSubmit: () async {
                                 checkIfExchangeRateChangeBefore();
-                                Navigator.pop(context);
+                                popRoute(context);
                                 await pushRoute(context, ExchangeRates());
                                 checkIfExchangeRateChangeAfter();
                               },

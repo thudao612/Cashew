@@ -1,9 +1,7 @@
 import 'package:budget/colors.dart';
 import 'package:budget/database/generatePreviewData.dart';
 import 'package:budget/database/tables.dart';
-import 'package:budget/main.dart';
 import 'package:budget/pages/addBudgetPage.dart';
-import 'package:budget/pages/homePage/homePagePieChart.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/languageMap.dart';
 import 'package:budget/struct/settings.dart';
@@ -16,7 +14,6 @@ import 'package:budget/widgets/moreIcons.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
-import 'package:budget/widgets/selectAmount.dart';
 import 'package:budget/widgets/settingsContainers.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/viewAllTransactionsButton.dart';
@@ -24,11 +21,10 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import '../functions.dart';
+import 'package:budget/functions.dart';
 import 'package:budget/database/initializeDefaultDatabase.dart';
 
-import '../widgets/pageIndicator.dart';
+import 'package:budget/widgets/pageIndicator.dart';
 
 class OnBoardingPage extends StatelessWidget {
   const OnBoardingPage({
@@ -68,8 +64,7 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
 
   double? selectedAmount;
   int selectedPeriodLength = 1;
-  DateTime selectedStartDate =
-      DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime selectedStartDate = DateTime.now().firstDayOfMonth();
   DateTime? selectedEndDate;
   String selectedRecurrence = "Monthly";
   bool selectedIncludeIncome = false;
@@ -129,10 +124,10 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
     if (generatePreview) {
       openLoadingPopup(context);
       await generatePreviewData();
-      Navigator.pop(context);
+      popRoute(context);
     }
     if (widget.popNavigationWhenDone) {
-      Navigator.pop(context);
+      popRoute(context);
     } else {
       updateSettings("hasOnboarded", true,
           pagesNeedingRefresh: [], updateGlobalState: true);
@@ -148,10 +143,10 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
     _focusAttachment = _focusNode.attach(context, onKeyEvent: (node, event) {
       if (event.logicalKey.keyLabel == "Go Back" ||
           event.logicalKey == LogicalKeyboardKey.escape) {
-        nextNavigation();
+        if (widget.popNavigationWhenDone) nextNavigation();
       } else if (event.runtimeType == KeyDownEvent &&
           event.logicalKey == LogicalKeyboardKey.arrowRight) {
-        nextOnBoardPage(4);
+        nextOnBoardPage();
       } else if (event.runtimeType == KeyDownEvent &&
           event.logicalKey == LogicalKeyboardKey.arrowLeft) {
         previousOnBoardPage();
@@ -174,13 +169,14 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
     super.dispose();
   }
 
-  void nextOnBoardPage(int numPages) {
-    controller.nextPage(
-      duration: Duration(milliseconds: 1100),
-      curve: ElasticOutCurve(1.3),
-    );
+  void nextOnBoardPage() {
     if ((controller.page?.round().toInt() ?? 0) + 1 == numPages) {
       nextNavigation();
+    } else {
+      controller.nextPage(
+        duration: Duration(milliseconds: 1100),
+        curve: ElasticOutCurve(1.3),
+      );
     }
   }
 
@@ -191,6 +187,7 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
     );
   }
 
+  int numPages = 3;
   @override
   Widget build(BuildContext context) {
     _focusAttachment.reparent();
@@ -377,7 +374,7 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
                               CurrencyPicker(
                                 showExchangeRateInfoNotice: false,
                                 onSelected: (selectedCurrency) {
-                                  Navigator.pop(context);
+                                  popRoute(context);
                                   database.createOrUpdateWallet(
                                       primaryWallet.copyWith(
                                           currency: Value(selectedCurrency)));
@@ -469,7 +466,6 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
                         await signInGoogle(
                           context: context,
                           waitForCompletion: false,
-                          drivePermissions: true,
                           next: () {},
                         );
                         if (appStateSettings["username"] == "" &&
@@ -490,10 +486,10 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
                         //     title: "backup-found".tr(),
                         //     description: "backup-found-description".tr(),
                         //     onSubmit: () {
-                        //       Navigator.pop(context, true);
+                        //       popRoute(context, true);
                         //     },
                         //     onCancel: () {
-                        //       Navigator.pop(context, false);
+                        //       popRoute(context, false);
                         //     },
                         //     onSubmitLabel: "restore".tr(),
                         //     onCancelLabel: "cancel".tr(),
@@ -509,7 +505,7 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
                         //     context,
                         //     forceSignIn: true,
                         //   );
-                        //   Navigator.pop(context);
+                        //   popRoute(context);
                         //   nextNavigation();
                         // }
                         // else {
@@ -576,6 +572,9 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
       ),
     ];
 
+    if (numPages != children.length)
+      print("Error: onboarding pages mismatch in length!");
+
     return Stack(
       children: [
         PageView(
@@ -591,8 +590,8 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
               foregroundDecoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Theme.of(context).canvasColor.withOpacity(0.0),
-                    Theme.of(context).canvasColor,
+                    Theme.of(context).colorScheme.background.withOpacity(0.0),
+                    Theme.of(context).colorScheme.background,
                   ],
                   begin: AlignmentDirectional.topCenter,
                   end: AlignmentDirectional.bottomCenter,
@@ -658,11 +657,7 @@ class OnBoardingPageBodyState extends State<OnBoardingPageBody> {
                                   : 1,
                           duration: Duration(milliseconds: 200),
                           child: ButtonIcon(
-                            onTap: () {
-                              if (currentIndex < children.length - 1 ||
-                                  getPlatform() == PlatformOS.isIOS)
-                                nextOnBoardPage(children.length);
-                            },
+                            onTap: () => nextOnBoardPage(),
                             icon: getPlatform() == PlatformOS.isIOS
                                 ? appStateSettings["outlinedIcons"]
                                     ? Icons.chevron_right_outlined

@@ -1,16 +1,16 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
 import 'package:budget/struct/initializeNotifications.dart';
+import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
 import 'package:budget/widgets/selectAmount.dart';
-import 'package:budget/widgets/transactionEntry/transactionEntryTypeButton.dart';
+import 'package:budget/widgets/selectedTransactionsAppBar.dart';
 import 'package:budget/widgets/transactionEntry/transactionLabel.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:easy_localization/easy_localization.dart';
@@ -19,7 +19,8 @@ import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:provider/provider.dart';
 
 Future createNewSubscriptionTransaction(
-    BuildContext context, Transaction transaction) async {
+    BuildContext context, Transaction transaction,
+    {String? closelyRelatedPairedTransactionFk}) async {
   if (transaction.createdAnotherFutureTransaction == false) {
     if (transaction.type == TransactionSpecialType.subscription ||
         transaction.type == TransactionSpecialType.repetitive) {
@@ -99,6 +100,9 @@ Future createNewSubscriptionTransaction(
         transactionPk: updatePredictableKey(transaction.transactionPk),
         dateCreated: newDate,
         createdAnotherFutureTransaction: Value(false),
+        pairedTransactionFk: closelyRelatedPairedTransactionFk != null
+            ? Value(updatePredictableKey(closelyRelatedPairedTransactionFk))
+            : Value(null),
       );
       await database.createOrUpdateTransaction(insert: false, newTransaction);
       String transactionName = await getTransactionLabel(transaction);
@@ -126,6 +130,63 @@ Future createNewSubscriptionTransaction(
       );
     }
   }
+}
+
+int? countTransactionOccurrences({
+  required TransactionSpecialType? type,
+  required BudgetReoccurence? reoccurrence,
+  required int? periodLength,
+  required DateTime dateCreated,
+  required DateTime? endDate,
+}) {
+  if (type != TransactionSpecialType.subscription &&
+      type != TransactionSpecialType.repetitive) {
+    return null;
+  }
+  if (endDate == null ||
+      reoccurrence == null ||
+      reoccurrence == BudgetReoccurence.custom ||
+      periodLength == null) return null;
+
+  int yearOffset = 0;
+  int monthOffset = 0;
+  int dayOffset = 0;
+
+  if (reoccurrence == BudgetReoccurence.yearly) {
+    yearOffset = periodLength;
+  } else if (reoccurrence == BudgetReoccurence.monthly) {
+    monthOffset = periodLength;
+  } else if (reoccurrence == BudgetReoccurence.weekly) {
+    dayOffset = periodLength * 7;
+  } else if (reoccurrence == BudgetReoccurence.daily) {
+    dayOffset = periodLength;
+  }
+
+  DateTime currentDate = dateCreated;
+
+  int occurrenceCount = 0;
+
+  while (!endDate.isBefore(currentDate)) {
+    occurrenceCount++;
+
+    currentDate = DateTime(
+      currentDate.year + yearOffset,
+      currentDate.month + monthOffset,
+      currentDate.day + dayOffset,
+      currentDate.hour,
+      currentDate.minute,
+      currentDate.second,
+      currentDate.millisecond,
+    );
+
+    if (endDate.isBefore(currentDate)) {
+      break;
+    } else if (occurrenceCount > 999) {
+      return null;
+    }
+  }
+
+  return occurrenceCount;
 }
 
 // We create a predictable key when a new repeat transaction is made
@@ -156,6 +217,26 @@ Future openPayPopup(
   Function? runBefore,
 }) async {
   String transactionName = await getTransactionLabel(transaction);
+  int? numberRepeats = transaction.createdAnotherFutureTransaction == true
+      ? null
+      : countTransactionOccurrences(
+          type: transaction.type,
+          reoccurrence: transaction.reoccurrence,
+          periodLength: transaction.periodLength,
+          dateCreated: transaction.dateCreated,
+          endDate: transaction.endDate,
+        );
+  String repeatsLeftLabel = numberRepeats == null
+      ? ""
+      : "\n× " +
+          numberRepeats.toString() +
+          " " +
+          "remain".tr() +
+          " " +
+          "until".tr() +
+          " " +
+          getWordedDateShort(transaction.endDate ?? DateTime.now(),
+              includeYear: transaction.endDate?.year != DateTime.now().year);
   return await openPopup(
     context,
     icon: appStateSettings["outlinedIcons"]
@@ -163,17 +244,18 @@ Future openPayPopup(
         : Icons.check_circle_rounded,
     title: (transaction.income ? "deposit".tr() : "pay".tr()) + "?",
     subtitle: transactionName,
-    description: transaction.income
-        ? "deposit-description".tr()
-        : "pay-description".tr(),
+    description: (transaction.income
+            ? "deposit-description".tr()
+            : "pay-description".tr()) +
+        repeatsLeftLabel,
     onCancelLabel: "cancel".tr().tr(),
     onCancel: () {
-      Navigator.pop(context, false);
+      popRoute(context, false);
     },
     onExtraLabel: "skip".tr(),
     onExtra: () async {
       if (runBefore != null) await runBefore();
-      Navigator.pop(context);
+      popRoute(context);
       await markAsSkipped(
         transaction: transaction,
       );
@@ -198,7 +280,7 @@ Future openPayPopup(
       //   );
       //   amount = amount.abs() * (transaction.income ? 1 : -1);
       // }
-      Navigator.pop(context);
+      popRoute(context);
       await markAsPaid(
         transaction: transaction,
       );
@@ -211,6 +293,7 @@ Future markAsPaid({
   // Avoid infinite recursion
   bool updatingCloselyRelated = false,
 }) async {
+  String? closelyRelatedPairedTransactionFk;
   if (updatingCloselyRelated == false && transaction.categoryFk == "0") {
     Transaction? closelyRelatedTransferCorrectionTransaction = await database
         .getCloselyRelatedBalanceCorrectionTransaction(transaction);
@@ -219,6 +302,8 @@ Future markAsPaid({
         transaction: closelyRelatedTransferCorrectionTransaction,
         updatingCloselyRelated: true,
       );
+      closelyRelatedPairedTransactionFk =
+          closelyRelatedTransferCorrectionTransaction.transactionPk;
     }
   }
   Transaction transactionNew = transaction.copyWith(
@@ -230,7 +315,10 @@ Future markAsPaid({
   );
   await database.createOrUpdateTransaction(transactionNew);
   await createNewSubscriptionTransaction(
-      navigatorKey.currentContext!, transaction);
+    navigatorKey.currentContext!,
+    transaction,
+    closelyRelatedPairedTransactionFk: closelyRelatedPairedTransactionFk,
+  );
   await setUpcomingNotifications(navigatorKey.currentContext!);
 }
 
@@ -239,6 +327,7 @@ Future markAsSkipped({
   // Avoid infinite recursion
   bool updatingCloselyRelated = false,
 }) async {
+  String? closelyRelatedPairedTransactionFk;
   if (updatingCloselyRelated == false && transaction.categoryFk == "0") {
     Transaction? closelyRelatedTransferCorrectionTransaction = await database
         .getCloselyRelatedBalanceCorrectionTransaction(transaction);
@@ -247,6 +336,8 @@ Future markAsSkipped({
         transaction: closelyRelatedTransferCorrectionTransaction,
         updatingCloselyRelated: true,
       );
+      closelyRelatedPairedTransactionFk =
+          closelyRelatedTransferCorrectionTransaction.transactionPk;
     }
   }
   Transaction transactionNew = transaction.copyWith(
@@ -256,7 +347,10 @@ Future markAsSkipped({
   );
   await database.createOrUpdateTransaction(transactionNew);
   await createNewSubscriptionTransaction(
-      navigatorKey.currentContext!, transaction);
+    navigatorKey.currentContext!,
+    transaction,
+    closelyRelatedPairedTransactionFk: closelyRelatedPairedTransactionFk,
+  );
   await setUpcomingNotifications(navigatorKey.currentContext!);
 }
 
@@ -285,7 +379,7 @@ Future openPayDebtCreditPopup(
             : "",
     onCancelLabel: "cancel".tr(),
     onCancel: () {
-      Navigator.pop(context, false);
+      popRoute(context, false);
     },
     onSubmitLabel: transaction.type == TransactionSpecialType.credit
         ? "collect-all".tr()
@@ -298,7 +392,7 @@ Future openPayDebtCreditPopup(
         //we don't want it to count towards the total - net is zero now
         paid: false,
       );
-      Navigator.pop(context, true);
+      popRoute(context, true);
       await database.createOrUpdateTransaction(transactionNew);
 
       // Make a separate transaction for one time loan collections... something like below?
@@ -308,7 +402,7 @@ Future openPayDebtCreditPopup(
       //   income: !transaction.income,
       //   pairedTransactionFk: Value(transaction.transactionPk),
       // );
-      // Navigator.pop(context, true);
+      // popRoute(context, true);
       // await database.createOrUpdateTransaction(transactionNew, insert: true);
     },
     onExtraLabel2: transaction.type == TransactionSpecialType.credit
@@ -347,7 +441,7 @@ Future openPayDebtCreditPopup(
               selectedAmount = amount;
             },
             next: () {
-              Navigator.pop(context, true);
+              popRoute(context, true);
             },
             nextLabel: "set-amount".tr(),
             currencyKey: null,
@@ -357,7 +451,7 @@ Future openPayDebtCreditPopup(
       );
       if (selectedAmount == 0 || result != true) return;
 
-      Navigator.pop(context, true);
+      popRoute(context, true);
 
       TransactionCategory category =
           await database.getCategory(transaction.categoryFk).$2;
@@ -430,14 +524,14 @@ Future openRemoveSkipPopup(
     description: "remove-skip-description".tr(),
     onCancelLabel: "cancel".tr(),
     onCancel: () {
-      Navigator.pop(context, false);
+      popRoute(context, false);
     },
     onSubmitLabel: "remove".tr(),
     onSubmit: () async {
       if (runBefore != null) await runBefore();
 
       Transaction transactionNew = transaction.copyWith(skipPaid: false);
-      Navigator.pop(context, true);
+      popRoute(context, true);
       await database.createOrUpdateTransaction(transactionNew);
       await setUpcomingNotifications(navigatorKey.currentContext!);
     },
@@ -459,7 +553,7 @@ Future openUnpayPopup(
       description: "remove-payment-description".tr(),
       onCancelLabel: "cancel".tr(),
       onCancel: () {
-        Navigator.pop(context, false);
+        popRoute(context, false);
       },
       onSubmitLabel: "remove".tr(),
       onSubmit: () async {
@@ -472,7 +566,7 @@ Future openUnpayPopup(
           sharedDateUpdated: Value(null),
           sharedStatus: Value(null),
         );
-        Navigator.pop(context, true);
+        popRoute(context, true);
         await database.createOrUpdateTransaction(transactionNew);
         await setUpcomingNotifications(navigatorKey.currentContext!);
       });
@@ -494,7 +588,7 @@ Future openUnpayDebtCreditPopup(
     description: "remove-payment-description".tr(),
     onCancelLabel: "cancel".tr(),
     onCancel: () {
-      Navigator.pop(context, false);
+      popRoute(context, false);
     },
     onSubmitLabel: "remove".tr(),
     onSubmit: () async {
@@ -503,7 +597,7 @@ Future openUnpayDebtCreditPopup(
         //we want it to count towards the total now - net is not zero
         paid: true,
       );
-      Navigator.pop(context, true);
+      popRoute(context, true);
       await database.createOrUpdateTransaction(transactionNew,
           updateSharedEntry: false);
     },
@@ -524,6 +618,11 @@ Future<bool> markSubscriptionsAsPaid(BuildContext context,
       if (appStateSettings["automaticallyPayRepetitive"])
         ...(await database.getAllOverdueRepetitiveTransactions().$2)
     ];
+
+    // Handle creation of paired transfer entries
+    Map<String, String> relatedMatchingPairs =
+        findMatchingPairsPks(subscriptions);
+
     bool hasUpdatedASubscription = false;
     for (Transaction transaction in subscriptions) {
       // Only mark it as paid if it was not marked as unpaid at any point (createdAnotherFutureTransaction == false)
@@ -538,7 +637,17 @@ Future<bool> markSubscriptionsAsPaid(BuildContext context,
           createdAnotherFutureTransaction: Value(true),
         );
         await database.createOrUpdateTransaction(transactionNew);
-        await createNewSubscriptionTransaction(context, transaction);
+        if (transaction.categoryFk == "0" &&
+            transaction.pairedTransactionFk != null &&
+            relatedMatchingPairs[transaction.pairedTransactionFk] != null) {
+          // print("PAIR:" +
+          //     relatedMatchingPairs[transaction.transactionPk].toString());
+          await createNewSubscriptionTransaction(context, transaction,
+              closelyRelatedPairedTransactionFk:
+                  relatedMatchingPairs[transaction.transactionPk]);
+        } else {
+          await createNewSubscriptionTransaction(context, transaction);
+        }
       }
     }
     if (hasUpdatedASubscription) {

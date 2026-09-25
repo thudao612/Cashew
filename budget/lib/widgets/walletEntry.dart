@@ -1,10 +1,8 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/pages/addWalletPage.dart';
 import 'package:budget/pages/homePage/homePageWalletSwitcher.dart';
 import 'package:budget/pages/transactionFilters.dart';
-import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/fadeIn.dart';
@@ -15,6 +13,7 @@ import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/transactionEntry/incomeAmountArrow.dart';
+import 'package:budget/widgets/watchAllWallets.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:budget/pages/walletDetailsPage.dart';
@@ -93,11 +92,11 @@ class WalletEntry extends StatelessWidget {
                           ),
                           AmountAccount(
                             walletWithDetails: walletWithDetails,
-                            textAlign: TextAlign.left,
+                            textAlign: TextAlign.start,
                             fontSize: 17,
                           ),
                           TextFont(
-                            textAlign: TextAlign.left,
+                            textAlign: TextAlign.start,
                             text: walletWithDetails.numberTransactions
                                     .toString() +
                                 " " +
@@ -119,7 +118,9 @@ class WalletEntry extends StatelessWidget {
               if (selected) {
                 openContainer();
               } else {
-                setPrimaryWallet(walletWithDetails.wallet.walletPk);
+                setPrimaryWallet(walletWithDetails.wallet.walletPk,
+                    allWallets:
+                        Provider.of<AllWallets>(context, listen: false));
               }
             },
             onLongPress: () {
@@ -230,7 +231,7 @@ class WalletEntryRow extends StatelessWidget {
                               start: 10,
                             ),
                             child: TextFont(
-                              textAlign: TextAlign.left,
+                              textAlign: TextAlign.start,
                               text: "",
                               maxLines: 1,
                               richTextSpan: [
@@ -272,7 +273,7 @@ class WalletEntryRow extends StatelessWidget {
                   ),
                   AmountAccount(
                     walletWithDetails: walletWithDetails,
-                    textAlign: TextAlign.right,
+                    textAlign: TextAlign.end,
                     fontSize: 18,
                   )
                 ],
@@ -283,7 +284,8 @@ class WalletEntryRow extends StatelessWidget {
             if (selected || isCurrencyRow) {
               openContainer();
             } else {
-              setPrimaryWallet(walletWithDetails.wallet.walletPk);
+              setPrimaryWallet(walletWithDetails.wallet.walletPk,
+                  allWallets: Provider.of<AllWallets>(context, listen: false));
             }
           },
           onLongPress: () async {
@@ -313,13 +315,6 @@ class WalletEntryRow extends StatelessWidget {
   }
 }
 
-// set selectedWallet, update selectedWallet
-Future<bool> setPrimaryWallet(String walletPk) async {
-  await updateSettings("selectedWalletPk", walletPk, updateGlobalState: true);
-  homePageStateKey.currentState?.refreshState();
-  return true;
-}
-
 class AmountAccount extends StatelessWidget {
   const AmountAccount({
     required this.walletWithDetails,
@@ -334,13 +329,16 @@ class AmountAccount extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    double? roundedWalletWithTotal = (double.tryParse(
+        absoluteZero(walletWithDetails.totalSpent ?? 0)
+            .toStringAsFixed(walletWithDetails.wallet.decimals)));
     Color textColor =
         appStateSettings["accountColorfulAmountsWithArrows"] == true
-            ? ((walletWithDetails.totalSpent ?? 0) == 0
+            ? roundedWalletWithTotal == 0
                 ? getColor(context, "black")
                 : (walletWithDetails.totalSpent ?? 0) > 0
                     ? getColor(context, "incomeAmount")
-                    : getColor(context, "expenseAmount"))
+                    : getColor(context, "expenseAmount")
             : getColor(context, "black");
     double finalTotal =
         appStateSettings["accountColorfulAmountsWithArrows"] == true
@@ -351,7 +349,7 @@ class AmountAccount extends StatelessWidget {
       children: [
         if (appStateSettings["accountColorfulAmountsWithArrows"] == true)
           AnimatedSizeSwitcher(
-            child: (walletWithDetails.totalSpent ?? 0) == 0
+            child: roundedWalletWithTotal == 0
                 ? Container(
                     key: ValueKey(1),
                   )
@@ -378,7 +376,9 @@ class AmountAccount extends StatelessWidget {
                 finalNumber: finalTotal,
                 currencyKey: walletWithDetails.wallet.currency,
                 decimals: walletWithDetails.wallet.decimals,
-                addCurrencyName: true,
+                addCurrencyName:
+                    Provider.of<AllWallets>(context).allContainSameCurrency() ==
+                        false,
               ),
               textColor: textColor,
               fontSize: fontSize,
@@ -389,4 +389,28 @@ class AmountAccount extends StatelessWidget {
       ],
     );
   }
+}
+
+// set selectedWallet, update selectedWallet
+Future<bool> setPrimaryWallet(String walletPk, {AllWallets? allWallets}) async {
+  if (allWallets != null &&
+      allWallets.indexedByPk[appStateSettings["selectedWalletPk"]]?.currency !=
+          null &&
+      allWallets.indexedByPk[walletPk]?.currency != null &&
+      allWallets.indexedByPk[appStateSettings["selectedWalletPk"]]?.currency ==
+          allWallets.indexedByPk[walletPk]?.currency &&
+      allWallets.indexedByPk[appStateSettings["selectedWalletPk"]]?.decimals !=
+          null &&
+      allWallets.indexedByPk[walletPk]?.decimals != null &&
+      allWallets.indexedByPk[appStateSettings["selectedWalletPk"]]?.decimals ==
+          allWallets.indexedByPk[walletPk]?.decimals) {
+    // The currency has not changed, we do not need to refresh the global state!
+    await updateSettings("selectedWalletPk", walletPk,
+        updateGlobalState: false);
+  } else {
+    // The currency has changed, or we do not have access to allWallets, so we need to refresh the global state
+    await updateSettings("selectedWalletPk", walletPk, updateGlobalState: true);
+  }
+  selectedWalletPkController.add(SelectedWalletPk(selectedWalletPk: walletPk));
+  return true;
 }

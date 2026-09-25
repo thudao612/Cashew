@@ -1,14 +1,11 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/objectivesListPage.dart';
-import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
-import 'package:budget/widgets/categoryEntry.dart';
 import 'package:budget/widgets/categoryIcon.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/util/infiniteRotationAnimation.dart';
-import 'package:budget/widgets/util/widgetSize.dart';
 import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:budget/colors.dart';
@@ -21,6 +18,7 @@ class TransactionEntryTag extends StatelessWidget {
     this.subCategory,
     this.budget,
     this.objective,
+    this.objectiveLoan,
     this.showExcludedBudgetTag,
     super.key,
   });
@@ -29,6 +27,7 @@ class TransactionEntryTag extends StatelessWidget {
   final TransactionCategory? subCategory;
   final Budget? budget;
   final Objective? objective;
+  final Objective? objectiveLoan;
   final bool Function(Transaction transaction)? showExcludedBudgetTag;
 
   @override
@@ -52,26 +51,29 @@ class TransactionEntryTag extends StatelessWidget {
         child: LayoutBuilder(builder: (context, constraints) {
           double maxWidth = constraints.maxWidth;
           List<bool> tagsToShow = [
-            appStateSettings["showAccountLabelTagInTransactionEntry"] == true,
-            transaction.subCategoryFk != null,
-            transaction.sharedReferenceBudgetPk != null,
-            transaction.objectiveLoanFk != null,
-            transaction.objectiveFk != null,
-            showExcludedBudgetTagCheck,
+            appStateSettings["showAccountLabelTagInTransactionEntry"] ==
+                true, //0
+            transaction.subCategoryFk != null, //1
+            transaction.sharedReferenceBudgetPk != null, //2
+            transaction.objectiveLoanFk != null, //3
+            transaction.objectiveFk != null, //4
+            showExcludedBudgetTagCheck, //5
           ];
           int tagCount = tagsToShow.where((element) => element == true).length;
           List<Widget> tags = [
+            // 0
             TransactionTag(
               color: HexColor(
                   Provider.of<AllWallets>(context)
                       .indexedByPk[transaction.walletFk]
                       ?.colour,
                   defaultColor: Theme.of(context).colorScheme.primary),
-              name: Provider.of<AllWallets>(context)
-                      .indexedByPk[transaction.walletFk]
-                      ?.name ??
-                  "",
+              name: getWalletStringName(
+                  Provider.of<AllWallets>(context),
+                  Provider.of<AllWallets>(context)
+                      .indexedByPk[transaction.walletFk]),
             ),
+            // 1
             Builder(builder: (context) {
               if (subCategory != null) {
                 return SubCategoryTag(category: subCategory!);
@@ -88,6 +90,7 @@ class TransactionEntryTag extends StatelessWidget {
                 );
               }
             }),
+            // 2
             Builder(builder: (context) {
               if (budget != null) {
                 return TransactionTag(
@@ -114,11 +117,12 @@ class TransactionEntryTag extends StatelessWidget {
                 );
               }
             }),
+            // 3
             Builder(builder: (context) {
-              if (objective != null) {
+              if (objectiveLoan != null) {
                 return ObjectivePercentTag(
                   transaction: transaction,
-                  objective: objective!,
+                  objective: objectiveLoan!,
                   showObjectivePercentageCheck: showObjectivePercentageCheck,
                 );
               }
@@ -139,6 +143,7 @@ class TransactionEntryTag extends StatelessWidget {
                 },
               );
             }),
+            // 4
             Builder(builder: (context) {
               if (objective != null) {
                 return ObjectivePercentTag(
@@ -163,6 +168,7 @@ class TransactionEntryTag extends StatelessWidget {
                 },
               );
             }),
+            // 5
             TransactionTag(
               color: Colors.grey,
               name: "excluded".tr(),
@@ -292,7 +298,18 @@ class TransactionTag extends StatelessWidget {
               text: name,
               fontSize: 11.5,
               textColor: getColor(context, "black").withOpacity(0.7),
-              maxLines: 1,
+              maxLines:
+                  appStateSettings["fadeTransactionNameOverflows"] == false
+                      ? null
+                      : 1,
+              overflow:
+                  appStateSettings["fadeTransactionNameOverflows"] == false
+                      ? null
+                      : TextOverflow.fade,
+              softWrap:
+                  appStateSettings["fadeTransactionNameOverflows"] == false
+                      ? null
+                      : false,
             ),
           ),
         ],

@@ -1,18 +1,17 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/pages/accountsPage.dart';
+import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/addWalletPage.dart';
 import 'package:budget/pages/editBudgetLimitsPage.dart';
 import 'package:budget/pages/editBudgetPage.dart';
-import 'package:budget/pages/editHomePage.dart';
 import 'package:budget/pages/premiumPage.dart';
+import 'package:budget/pages/settingsPage.dart';
 import 'package:budget/pages/sharedBudgetSettings.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/shareBudget.dart';
 import 'package:budget/widgets/button.dart';
-import 'package:budget/widgets/countNumber.dart';
 import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
 import 'package:budget/widgets/incomeExpenseTabSelector.dart';
@@ -29,23 +28,24 @@ import 'package:budget/widgets/saveBottomButton.dart';
 import 'package:budget/widgets/selectAmount.dart';
 import 'package:budget/widgets/selectCategory.dart';
 import 'package:budget/widgets/selectColor.dart';
+import 'package:budget/widgets/settingsContainers.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textInput.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/util/showDatePicker.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:budget/colors.dart';
 import 'package:provider/provider.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
-
-import '../widgets/listItem.dart';
-import '../widgets/outlinedButtonStacked.dart';
-import '../widgets/sliverStickyLabelDivider.dart';
-import '../widgets/tappableTextEntry.dart';
+import 'package:budget/widgets/listItem.dart';
+import 'package:budget/widgets/outlinedButtonStacked.dart';
+import 'package:budget/widgets/sliverStickyLabelDivider.dart';
+import 'package:budget/widgets/tappableTextEntry.dart';
 
 class AddBudgetPage extends StatefulWidget {
   AddBudgetPage({
@@ -112,8 +112,7 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
   String? selectedAmountCalculation;
   String? selectedTitle;
   int selectedPeriodLength = 1;
-  DateTime selectedStartDate =
-      DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime selectedStartDate = DateTime.now().firstDayOfMonth();
   DateTime? selectedEndDate;
   late Color? selectedColor =
       widget.budget?.colour == null ? null : HexColor(widget.budget?.colour);
@@ -241,7 +240,7 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
         appStateSettings["sharedBudgets"] == true) {
       openLoadingPopup(context);
       bool result2 = await shareBudget(createdBudget, context);
-      Navigator.pop(context);
+      popRoute(context);
       if (result2 == false) {
         Future.delayed(Duration.zero, () {
           openPopup(
@@ -253,7 +252,7 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
             description:
                 "You can only update the details of a shared budget online.",
             onSubmit: () {
-              Navigator.pop(context);
+              popRoute(context);
             },
             onSubmitLabel: "ok".tr(),
           );
@@ -273,17 +272,18 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
         description:
             "You can only update the details of a shared category online.",
         onCancel: () {
-          Navigator.pop(context);
-          Navigator.pop(context);
+          popRoute(context);
+          popRoute(context);
         },
         onSubmit: () {
-          Navigator.pop(context);
+          popRoute(context);
         },
         onSubmitLabel: "ok".tr(),
         onCancelLabel: "Exit Without Saving",
       );
     } else {
-      Navigator.pop(context);
+      savingHapticFeedback();
+      popRoute(context);
     }
   }
 
@@ -353,7 +353,7 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
     if (budgetCreated != budgetInitial && widget.budget == null) {
       discardChangesPopup(context, forceShow: true);
     } else {
-      Navigator.pop(context);
+      popRoute(context);
     }
   }
 
@@ -528,11 +528,11 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
             : Icons.bar_chart_rounded,
         description: "balance-correction-selected-info".tr(),
         onSubmit: () {
-          Navigator.pop(context);
+          popRoute(context);
         },
         onSubmitLabel: "ok".tr(),
         onCancel: () {
-          Navigator.pop(context);
+          popRoute(context);
           openBottomSheet(
             context,
             fullSnap: false,
@@ -590,763 +590,803 @@ class _AddBudgetPageState extends State<AddBudgetPage> {
         }
         return false;
       },
-      child: GestureDetector(
-        onTap: () {
-          minimizeKeyboard(context);
+      child: PageFramework(
+        resizeToAvoidBottomInset: true,
+        dragDownToDismiss: true,
+        title: widget.budget == null ? "add-budget".tr() : "edit-budget".tr(),
+        onBackButton: () async {
+          if (widget.budget != null) {
+            discardChangesPopupIfBudgetPassed();
+          } else {
+            showDiscardChangesPopupIfNotEditing();
+          }
         },
-        child: PageFramework(
-          resizeToAvoidBottomInset: true,
-          dragDownToDismiss: true,
-          title: widget.budget == null ? "add-budget".tr() : "edit-budget".tr(),
-          onBackButton: () async {
-            if (widget.budget != null) {
-              discardChangesPopupIfBudgetPassed();
-            } else {
-              showDiscardChangesPopupIfNotEditing();
-            }
-          },
-          onDragDownToDismiss: () async {
-            if (widget.budget != null) {
-              discardChangesPopupIfBudgetPassed();
-            } else {
-              showDiscardChangesPopupIfNotEditing();
-            }
-          },
-          actions: [
-            CustomPopupMenuButton(
-              showButtons: widget.budget == null || enableDoubleColumn(context),
-              keepOutFirst: true,
-              items: [
-                if (widget.budget != null &&
-                    widget.routesToPopAfterDelete !=
-                        RoutesToPopAfterDelete.PreventDelete)
-                  DropdownItemMenu(
-                    id: "delete-budget",
-                    label: "delete-budget".tr(),
-                    icon: appStateSettings["outlinedIcons"]
-                        ? Icons.delete_outlined
-                        : Icons.delete_rounded,
-                    action: () {
-                      deleteBudgetPopup(
-                        context,
-                        budget: widget.budget!,
-                        routesToPopAfterDelete: widget.routesToPopAfterDelete,
-                      );
-                    },
-                  ),
-                // DropdownItemMenu(
-                //   id: "pin-to-home",
-                //   label: selectedPin
-                //       ? "pinned-to-homepage".tr()
-                //       : "unpinned-to-homepage".tr(),
-                //   icon: selectedPin
-                //       ? Icons.push_pin_rounded
-                //       : Icons.push_pin_outlined,
-                //   action: () {
-                //     setSelectedPin();
-                //   },
-                // ),
-              ],
-            ),
-          ],
-          staticOverlay: Align(
-            alignment: AlignmentDirectional.bottomCenter,
-            child: selectedTitle == "" || selectedTitle == null
-                ? SaveBottomButton(
-                    label: "set-name".tr(),
-                    onTap: () async {
-                      FocusScope.of(context).unfocus();
-                      Future.delayed(Duration(milliseconds: 100), () {
-                        _titleFocusNode.requestFocus();
-                      });
-                    },
-                    disabled: false,
-                  )
-                : selectedAmount == 0 || selectedAmount == null
-                    ? SaveBottomButton(
-                        label: "set-amount".tr(),
-                        onTap: () async {
-                          _budgetDetailsStateKey.currentState
-                              ?.selectAmount(context);
-                        },
-                        disabled: false,
-                      )
-                    : SaveBottomButton(
-                        label: widget.budget == null
-                            ? "add-budget".tr()
-                            : "save-changes".tr(),
-                        onTap: () async {
-                          await addBudget();
-                        },
-                        disabled: !(canAddBudget ?? false),
-                      ),
+        onDragDownToDismiss: () async {
+          if (widget.budget != null) {
+            discardChangesPopupIfBudgetPassed();
+          } else {
+            showDiscardChangesPopupIfNotEditing();
+          }
+        },
+        actions: [
+          CustomPopupMenuButton(
+            showButtons: true,
+            keepOutFirst: true,
+            items: [
+              if (widget.budget != null &&
+                  mapRecurrence(selectedRecurrence) ==
+                      BudgetReoccurence.custom &&
+                  canAddBudget == true)
+                DropdownItemMenu(
+                  id: "duplicate-budget",
+                  label: "duplicate-budget".tr(),
+                  icon: appStateSettings["outlinedIcons"]
+                      ? Icons.copy_outlined
+                      : Icons.copy_rounded,
+                  action: () async {
+                    Budget savedBudget = await createBudget();
+                    duplicateBudgetPopup(
+                      context,
+                      budget: savedBudget,
+                    );
+                  },
+                ),
+              if (widget.budget != null &&
+                  widget.routesToPopAfterDelete !=
+                      RoutesToPopAfterDelete.PreventDelete)
+                DropdownItemMenu(
+                  id: "delete-budget",
+                  label: "delete-budget".tr(),
+                  icon: appStateSettings["outlinedIcons"]
+                      ? Icons.delete_outlined
+                      : Icons.delete_rounded,
+                  action: () {
+                    deleteBudgetPopup(
+                      context,
+                      budget: widget.budget!,
+                      routesToPopAfterDelete: widget.routesToPopAfterDelete,
+                    );
+                  },
+                ),
+
+              // DropdownItemMenu(
+              //   id: "pin-to-home",
+              //   label: selectedPin
+              //       ? "pinned-to-homepage".tr()
+              //       : "unpinned-to-homepage".tr(),
+              //   icon: selectedPin
+              //       ? Icons.push_pin_rounded
+              //       : Icons.push_pin_outlined,
+              //   action: () {
+              //     setSelectedPin();
+              //   },
+              // ),
+            ],
           ),
-          slivers: [
-            ColumnSliver(
-              centered: true,
-              children: [
-                Padding(
-                  padding: EdgeInsetsDirectional.symmetric(
-                      horizontal:
-                          13 + getHorizontalPaddingConstrained(context)),
-                  child: IncomeExpenseTabSelector(
-                    onTabChanged: setSelectedIncome,
-                    initialTabIsIncome: selectedIncome,
-                    syncWithInitial: true,
-                    hasBorderRadius: true,
-                    incomeLabel: "savings-budget".tr(),
-                    expenseLabel: "expense-budget".tr(),
+        ],
+        staticOverlay: Align(
+          alignment: AlignmentDirectional.bottomCenter,
+          child: selectedTitle == "" || selectedTitle == null
+              ? SaveBottomButton(
+                  label: "set-name".tr(),
+                  onTap: () async {
+                    FocusScope.of(context).unfocus();
+                    Future.delayed(Duration(milliseconds: 100), () {
+                      _titleFocusNode.requestFocus();
+                    });
+                  },
+                  disabled: false,
+                )
+              : selectedAmount == 0 || selectedAmount == null
+                  ? SaveBottomButton(
+                      label: "set-amount".tr(),
+                      onTap: () async {
+                        _budgetDetailsStateKey.currentState
+                            ?.selectAmount(context);
+                      },
+                      disabled: false,
+                    )
+                  : SaveBottomButton(
+                      label: widget.budget == null
+                          ? "add-budget".tr()
+                          : "save-changes".tr(),
+                      onTap: () async {
+                        await addBudget();
+                      },
+                      disabled: !(canAddBudget ?? false),
+                    ),
+        ),
+        slivers: [
+          ColumnSliver(
+            centered: true,
+            children: [
+              Padding(
+                padding: EdgeInsetsDirectional.symmetric(
+                    horizontal: 13 + getHorizontalPaddingConstrained(context)),
+                child: IncomeExpenseTabSelector(
+                  onTabChanged: setSelectedIncome,
+                  initialTabIsIncome: selectedIncome,
+                  syncWithInitial: true,
+                  hasBorderRadius: true,
+                  incomeLabel: "savings-budget".tr(),
+                  expenseLabel: "expense-budget".tr(),
+                ),
+              ),
+              SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsetsDirectional.symmetric(horizontal: 20),
+                child: IntrinsicWidth(
+                  child: TextInput(
+                    textAlign: TextAlign.center,
+                    autoFocus: kIsWeb && getIsFullScreen(context),
+                    focusNode: _titleFocusNode,
+                    labelText: "name-placeholder".tr(),
+                    bubbly: false,
+                    initialValue: selectedTitle,
+                    onChanged: (text) {
+                      setSelectedTitle(text);
+                    },
+                    padding: EdgeInsetsDirectional.only(start: 7, end: 7),
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    topContentPadding: 18,
                   ),
                 ),
-                SizedBox(height: 4),
-                Padding(
-                  padding:
-                      const EdgeInsetsDirectional.symmetric(horizontal: 20),
-                  child: IntrinsicWidth(
-                    child: TextInput(
-                      textAlign: TextAlign.center,
-                      autoFocus: kIsWeb && getIsFullScreen(context),
-                      focusNode: _titleFocusNode,
-                      labelText: "name-placeholder".tr(),
-                      bubbly: false,
-                      initialValue: selectedTitle,
-                      onChanged: (text) {
-                        setSelectedTitle(text);
+              ),
+              BudgetDetails(
+                showCurrentPeriod: true,
+                key: _budgetDetailsStateKey,
+                determineBottomButton: () {
+                  determineBottomButton();
+                },
+                setSelectedAmount: setSelectedAmount,
+                initialSelectedAmount: selectedAmount,
+                setSelectedPeriodLength: (length) {
+                  print("LENGTh");
+                  print(selectedPeriodLength);
+                  print(length);
+                  setState(() {
+                    selectedPeriodLength = length;
+                  });
+                },
+                initialSelectedPeriodLength: selectedPeriodLength,
+                setSelectedRecurrence: (recurrence) {
+                  setState(() {
+                    selectedRecurrence = recurrence;
+                  });
+                },
+                initialSelectedRecurrence: selectedRecurrence,
+                setSelectedStartDate: (date) {
+                  setState(() {
+                    selectedStartDate = date;
+                  });
+                },
+                initialSelectedStartDate: selectedStartDate,
+                setSelectedEndDate: (date) {
+                  setState(() {
+                    selectedEndDate = date;
+                  });
+                },
+                initialSelectedEndDate: selectedEndDate,
+                afterAmountEnteredDismissed: (amountEntered) {
+                  if (widget.budget != null &&
+                      amountEntered != null &&
+                      budgetAmount != null) {
+                    amountEntered = amountRatioToPrimaryCurrencyGivenPk(
+                            Provider.of<AllWallets>(context, listen: false),
+                            selectedWalletPk) *
+                        amountEntered;
+                    if (budgetAmount < amountEntered &&
+                        increaseBudgetWarningShown == false) {
+                      increaseBudgetWarningShown = true;
+                      openPopup(
+                        context,
+                        title: "increase-budget-warning".tr(),
+                        description: "increase-budget-warning-description".tr(),
+                        icon: appStateSettings["outlinedIcons"]
+                            ? Icons.warning_outlined
+                            : Icons.warning_rounded,
+                        onSubmitLabel: "ok".tr(),
+                        onSubmit: () {
+                          popRoute(context);
+                        },
+                      );
+                    }
+                  }
+                },
+                setSelectedWalletPk: setSelectedWalletPk,
+                initialSelectedWalletPk: selectedWalletPk,
+              ),
+              SizedBox(height: 10),
+            ],
+          ),
+          // SliverToBoxAdapter(
+          //   child: widget.budget == null
+          //       ? SizedBox.shrink()
+          //       : Padding(
+          //           padding: const EdgeInsetsDirectional.only(
+          //             start: 20,
+          //             end: 20,
+          //             bottom: 15,
+          //           ),
+          //           child: SettingsContainer(
+          //             isOutlined: true,
+          //             onTap: () async {
+          //               Budget budget = await createBudget();
+          //               pushRoute(
+          //                 context,
+          //                 StreamBuilder<Budget>(
+          //                   stream:
+          //                       database.getBudget(widget.budget!.budgetPk),
+          //                   builder: (context, snapshot) {
+          //                     if (snapshot.data == null)
+          //                       return SizedBox.shrink();
+          //                     return EditBudgetLimitsPage(
+          //                       budget: budget,
+          //                       currentIsAbsoluteSpendingLimit:
+          //                           snapshot.data!.isAbsoluteSpendingLimit,
+          //                     );
+          //                   },
+          //                 ),
+          //               );
+          //             },
+          //             title:  widget.budget?.income == true
+          //                ? "set-saving-goals".tr()
+          //                : "set-spending-goals".tr(),
+          //             icon: appStateSettings["outlinedIcons"]
+          //                 ? Icons.fact_check_outlined
+          //                 : Icons.fact_check_rounded,
+          //             iconScale: 1,
+          //             isWideOutlined: true,
+          //           ),
+          //         ),
+          // ),
+          SliverToBoxAdapter(
+            child: widget.budget == null
+                ? SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      start: 24,
+                      end: 24,
+                      bottom: 15,
+                    ),
+                    child: SettingsContainer(
+                      isOutlined: true,
+                      onTap: () async {
+                        Budget budget = await createBudget();
+                        pushRoute(
+                          context,
+                          StreamBuilder<Budget>(
+                            stream: database.getBudget(widget.budget!.budgetPk),
+                            builder: (context, snapshot) {
+                              if (snapshot.data == null)
+                                return SizedBox.shrink();
+                              return EditBudgetLimitsPage(
+                                budget: budget,
+                                currentIsAbsoluteSpendingLimit:
+                                    snapshot.data!.isAbsoluteSpendingLimit,
+                              );
+                            },
+                          ),
+                        );
                       },
-                      padding: EdgeInsetsDirectional.only(start: 7, end: 7),
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                      topContentPadding: 18,
+                      title: selectedIncome
+                          ? "set-saving-goals".tr()
+                          : "set-spending-goals".tr(),
+                      icon: appStateSettings["outlinedIcons"]
+                          ? Icons.fact_check_outlined
+                          : Icons.fact_check_rounded,
+                      iconScale: 1,
+                      isWideOutlined: true,
+                    ),
+                  ),
+          ),
+          SliverToBoxAdapter(
+            child: Container(
+              height: 65,
+              child: SelectColor(
+                horizontalList: true,
+                selectedColor: selectedColor,
+                setSelectedColor: setSelectedColor,
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+              child: HorizontalBreak(
+            padding: EdgeInsetsDirectional.symmetric(vertical: 15),
+          )),
+
+          widget.budget != null
+              ? SliverToBoxAdapter(child: SizedBox.shrink())
+              : SliverStickyLabelDivider(
+                  info: "budget-type".tr(),
+                  sliver: ColumnSliver(
+                    children: [
+                      SizedBox(height: 5),
+                      SelectChips(
+                        allowMultipleSelected: false,
+                        extraWidgetBefore: Transform.scale(
+                          scale: 1.3,
+                          child: IconButton(
+                            padding: EdgeInsetsDirectional.zero,
+                            visualDensity: VisualDensity.compact,
+                            icon: Icon(
+                              appStateSettings["outlinedIcons"]
+                                  ? Icons.info_outlined
+                                  : Icons.info_outline_rounded,
+                              size: 19,
+                            ),
+                            onPressed: openBudgetTypeInfo,
+                          ),
+                        ),
+                        onLongPress: (_) {
+                          openBudgetTypeInfo();
+                        },
+                        wrapped: true,
+                        items: <String>[
+                          "Added Only",
+                          "All Transactions",
+                          ...(appStateSettings["sharedBudgets"]
+                              ? ["Shared Group Budget"]
+                              : [])
+                        ],
+                        getLabel: (String item) {
+                          if (item == "Shared Group Budget")
+                            return item + " (Unsupported)";
+                          else if (item == "All Transactions")
+                            return "all-transactions".tr();
+                          else if (item == "Added Only")
+                            return "added-only".tr();
+                          return item;
+                        },
+                        onSelected: (String item) {
+                          setSelectedBudgetType(item);
+                        },
+                        getSelected: (String item) {
+                          if (selectedShared == true &&
+                              selectedAddedTransactionsOnly == true &&
+                              item == "Shared Group Budget") {
+                            return true;
+                          } else if (selectedShared == false &&
+                              selectedAddedTransactionsOnly == true &&
+                              item == "Added Only") {
+                            return true;
+                          } else if (selectedShared == false &&
+                              selectedAddedTransactionsOnly == false &&
+                              item == "All Transactions") {
+                            return true;
+                          }
+                          return false;
+                        },
+                      ),
+                      SizedBox(height: 10),
+                    ],
+                  ),
+                ),
+          SliverStickyLabelDivider(
+            info: "transactions-to-include".tr(),
+            visible:
+                !(selectedShared == true || selectedAddedTransactionsOnly) &&
+                    ((widget.budget != null &&
+                            widget.budget!.sharedKey == null &&
+                            widget.budget!.addedTransactionsOnly == false) ||
+                        widget.budget == null),
+            sliver: SliverToBoxAdapter(
+              child: FutureBuilder<TransactionCategory?>(
+                  future: database.getCategory("0").$2,
+                  builder: (context, snapshot) {
+                    return AnimatedExpanded(
+                      expand: !(selectedShared == true ||
+                          selectedAddedTransactionsOnly),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 5),
+                          SelectChips(
+                            extraWidgetBefore: Transform.scale(
+                              scale: 1.3,
+                              child: IconButton(
+                                padding: EdgeInsetsDirectional.zero,
+                                visualDensity: VisualDensity.compact,
+                                icon: Icon(
+                                  appStateSettings["outlinedIcons"]
+                                      ? Icons.info_outlined
+                                      : Icons.info_outline_rounded,
+                                  size: 19,
+                                ),
+                                onPressed: openTransactionsToIncludeInfo,
+                              ),
+                            ),
+                            onLongPress: (_) {
+                              openTransactionsToIncludeInfo();
+                            },
+                            items: [
+                              BudgetTransactionFilters
+                                  .defaultBudgetTransactionFilters,
+                              BudgetTransactionFilters.includeIncome,
+                              BudgetTransactionFilters.includeDebtAndCredit,
+                              BudgetTransactionFilters.addedToOtherBudget,
+                              BudgetTransactionFilters.addedToObjective,
+                              ...(appStateSettings["sharedBudgets"]
+                                  ? [
+                                      BudgetTransactionFilters
+                                          .sharedToOtherBudget
+                                    ]
+                                  : []),
+                              if (snapshot.hasData)
+                                BudgetTransactionFilters
+                                    .includeBalanceCorrection,
+                            ],
+                            getLabel: (dynamic item) {
+                              return item ==
+                                      BudgetTransactionFilters
+                                          .defaultBudgetTransactionFilters
+                                  ? "default".tr()
+                                  : item ==
+                                          BudgetTransactionFilters.includeIncome
+                                      ? selectedIncome
+                                          ? "include-expense".tr()
+                                          : "include-income".tr()
+                                      : item ==
+                                              BudgetTransactionFilters
+                                                  .addedToOtherBudget
+                                          ? "added-to-other-budgets".tr()
+                                          : item ==
+                                                  BudgetTransactionFilters
+                                                      .addedToObjective
+                                              ? "added-to-goal".tr()
+                                              : item ==
+                                                      BudgetTransactionFilters
+                                                          .sharedToOtherBudget
+                                                  ? "shared-to-other-budgets"
+                                                      .tr()
+                                                  : item ==
+                                                          BudgetTransactionFilters
+                                                              .includeDebtAndCredit
+                                                      ? "include-debt-and-credit"
+                                                          .tr()
+                                                      : item ==
+                                                              BudgetTransactionFilters
+                                                                  .includeBalanceCorrection
+                                                          ? "balance-correction"
+                                                              .tr()
+                                                          : "";
+                            },
+                            onSelected: (dynamic item) {
+                              if (item ==
+                                  BudgetTransactionFilters
+                                      .defaultBudgetTransactionFilters) {
+                                if (selectedBudgetTransactionFilters.contains(
+                                    BudgetTransactionFilters
+                                        .defaultBudgetTransactionFilters)) {
+                                  selectedBudgetTransactionFilters = [];
+                                } else {
+                                  selectedBudgetTransactionFilters = [
+                                    BudgetTransactionFilters
+                                        .defaultBudgetTransactionFilters
+                                  ];
+                                }
+                              } else {
+                                if (selectedBudgetTransactionFilters.contains(
+                                    BudgetTransactionFilters
+                                        .defaultBudgetTransactionFilters)) {
+                                  selectedBudgetTransactionFilters = [];
+                                }
+                                if (selectedBudgetTransactionFilters
+                                    .contains(item)) {
+                                  selectedBudgetTransactionFilters.remove(item);
+                                } else {
+                                  selectedBudgetTransactionFilters.add(item);
+                                }
+                              }
+
+                              setState(() {});
+                              determineBottomButton();
+                            },
+                            getSelected: (dynamic item) {
+                              if (selectedBudgetTransactionFilters.contains(
+                                  BudgetTransactionFilters
+                                      .defaultBudgetTransactionFilters))
+                                return isFilterSelectedWithDefaults(
+                                    selectedBudgetTransactionFilters, item);
+                              return selectedBudgetTransactionFilters
+                                  .contains(item);
+                            },
+                          ),
+                          AnimatedExpanded(
+                            expand: appStateSettings["sharedBudgets"] == true &&
+                                (selectedBudgetTransactionFilters.contains(
+                                    BudgetTransactionFilters
+                                        .sharedToOtherBudget)),
+                            child: SelectChips(
+                              items: ["All", ...allMembersOfAllBudgets],
+                              getLabel: (String item) {
+                                return getMemberNickname(item);
+                              },
+                              onSelected: (String item) {
+                                if (item == "All" &&
+                                    selectedMemberTransactionFilters == null) {
+                                  selectedMemberTransactionFilters = [];
+                                  setState(() {});
+                                  determineBottomButton();
+                                  return;
+                                } else if (item == "All" &&
+                                    selectedMemberTransactionFilters != null) {
+                                  selectedMemberTransactionFilters = null;
+                                  setState(() {});
+                                  determineBottomButton();
+                                  return;
+                                }
+                                if (selectedMemberTransactionFilters == null) {
+                                  selectedMemberTransactionFilters = [];
+                                }
+                                if (selectedMemberTransactionFilters!
+                                    .contains(item)) {
+                                  selectedMemberTransactionFilters!
+                                      .remove(item);
+                                } else {
+                                  selectedMemberTransactionFilters!.add(item);
+                                }
+                                setState(() {});
+                                determineBottomButton();
+                              },
+                              getSelected: (String item) {
+                                if (item == "All" &&
+                                    selectedMemberTransactionFilters == null)
+                                  return true;
+                                if (item != "All" &&
+                                    selectedMemberTransactionFilters == null)
+                                  return true;
+                                return selectedMemberTransactionFilters!
+                                    .contains(item);
+                              },
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                        ],
+                      ),
+                    );
+                  }),
+            ),
+          ),
+          if (widget.budget != null && widget.budget!.addedTransactionsOnly)
+            SliverToBoxAdapter(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                          start: 15, end: 15, top: 25),
+                      child: TextFont(
+                        text: "added-budget-description".tr(),
+                        fontSize: 14,
+                        textColor: getColor(context, "textLight"),
+                        maxLines: 5,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          SliverStickyLabelDivider(
+            info: "select-accounts".tr(),
+            visible:
+                !(selectedShared == true || selectedAddedTransactionsOnly) &&
+                    ((widget.budget != null &&
+                            widget.budget!.sharedKey == null &&
+                            widget.budget!.addedTransactionsOnly == false) ||
+                        widget.budget == null),
+            sliver: SliverToBoxAdapter(
+                child: WalletChipSelector(
+              expand:
+                  !(selectedShared == true || selectedAddedTransactionsOnly),
+              onSelected: (selected) {
+                selectedWalletFks = selected;
+                setState(() {});
+                determineBottomButton();
+              },
+              initiallySelectedWalletFks: selectedWalletFks,
+            )),
+          ),
+          SliverStickyLabelDivider(
+            info: "select-categories".tr(),
+            extraInfo: getSelectedCategoriesText(selectedCategoryPks),
+            visible:
+                !(selectedShared == true || selectedAddedTransactionsOnly) &&
+                    ((widget.budget != null &&
+                            widget.budget!.sharedKey == null &&
+                            widget.budget!.addedTransactionsOnly == false) ||
+                        widget.budget == null),
+            sliver: SliverToBoxAdapter(
+              child: AnimatedOpacity(
+                duration: Duration(milliseconds: 500),
+                opacity: (selectedCategoryPksExclude == null ||
+                        selectedCategoryPksExclude?.isEmpty == true)
+                    ? 1
+                    : 0.3,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(bottom: 5),
+                  child: AnimatedExpanded(
+                    expand: !(selectedShared == true ||
+                        selectedAddedTransactionsOnly),
+                    child: SelectCategory(
+                      horizontalList: true,
+                      selectedCategories: selectedCategoryPks,
+                      setSelectedCategories: (categories) {
+                        checkPopupBalanceCorrectionSelectedWarning(
+                            context, categories);
+                        setSelectedCategories(categories);
+                      },
+                      showSelectedAllCategoriesIfNoneSelected: true,
                     ),
                   ),
                 ),
-                BudgetDetails(
-                  showCurrentPeriod: true,
-                  key: _budgetDetailsStateKey,
-                  determineBottomButton: () {
-                    determineBottomButton();
+              ),
+            ),
+          ),
+          SliverStickyLabelDivider(
+            info: "select-exclude-categories".tr(),
+            extraInfo: getSelectedCategoriesText(selectedCategoryPksExclude,
+                defaultText: "no-categories".tr()),
+            visible:
+                !(selectedShared == true || selectedAddedTransactionsOnly) &&
+                    ((widget.budget != null &&
+                            widget.budget!.sharedKey == null &&
+                            widget.budget!.addedTransactionsOnly == false) ||
+                        widget.budget == null),
+            sliver: SliverToBoxAdapter(
+              child: AnimatedOpacity(
+                duration: Duration(milliseconds: 500),
+                opacity: (selectedCategoryPks == null ||
+                        selectedCategoryPks?.isEmpty == true)
+                    ? 1
+                    : 0.3,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(bottom: 5),
+                  child: AnimatedExpanded(
+                    expand: !(selectedShared == true ||
+                        selectedAddedTransactionsOnly),
+                    child: SelectCategory(
+                      horizontalList: true,
+                      selectedCategories: selectedCategoryPksExclude,
+                      setSelectedCategories: (categories) {
+                        checkPopupBalanceCorrectionSelectedWarning(
+                            context, categories);
+                        setSelectedCategoriesExclude(categories);
+                      },
+                      showSelectedAllCategoriesIfNoneSelected: false,
+                      fadeOutWhenSelected: true,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+        listWidgets: [
+          widget.budget != null && widget.budget!.sharedKey != null
+              ? SharedBudgetSettings(
+                  budget: widget.budget!,
+                )
+              : SizedBox.shrink(),
+          SizedBox(height: 13),
+          Container(height: 70),
+        ],
+      ),
+    );
+  }
+}
+
+class WalletChipSelector extends StatefulWidget {
+  const WalletChipSelector(
+      {required this.expand,
+      required this.initiallySelectedWalletFks,
+      required this.onSelected,
+      super.key});
+  final bool expand;
+  final List<String>? initiallySelectedWalletFks;
+  final Function(List<String>?) onSelected;
+
+  @override
+  State<WalletChipSelector> createState() => _WalletChipSelectorState();
+}
+
+class _WalletChipSelectorState extends State<WalletChipSelector> {
+  late List<String>? selectedWalletFks;
+
+  @override
+  void initState() {
+    selectedWalletFks = widget.initiallySelectedWalletFks;
+    final Set<String> keysSet = Provider.of<AllWallets>(context, listen: false)
+        .indexedByPk
+        .keys
+        .toSet();
+    if (keysSet.any((value) => (selectedWalletFks ?? []).contains(value)) ==
+        false) {
+      selectedWalletFks = null;
+      Future.delayed(Duration.zero, () => onSelected(null));
+    }
+
+    super.initState();
+  }
+
+  onSelected(TransactionWallet? item) {
+    if (selectedWalletFks == null && item != null) {
+      selectedWalletFks = [];
+    }
+    if (item != null) {
+      if (selectedWalletFks!.contains(item.walletPk)) {
+        selectedWalletFks!.remove(item.walletPk);
+      } else {
+        selectedWalletFks!.add(item.walletPk);
+      }
+    }
+    if (item == null || (selectedWalletFks ?? []).length <= 0) {
+      selectedWalletFks = null;
+    }
+    setState(() {});
+    widget.onSelected(selectedWalletFks);
+  }
+
+  bool getSelected(TransactionWallet? item) {
+    return selectedWalletFks == null && item == null
+        ? true
+        : (selectedWalletFks ?? []).contains(item?.walletPk);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<TransactionWallet>>(
+      stream: database.watchAllWallets(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          return AnimatedExpanded(
+            expand: widget.expand,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: 5),
+                SelectChips(
+                  items: [null, ...snapshot.data!],
+                  onLongPress: (TransactionWallet? item) {
+                    pushRoute(
+                      context,
+                      AddWalletPage(
+                        wallet: item,
+                        routesToPopAfterDelete:
+                            RoutesToPopAfterDelete.PreventDelete,
+                      ),
+                    );
                   },
-                  setSelectedAmount: setSelectedAmount,
-                  initialSelectedAmount: selectedAmount,
-                  setSelectedPeriodLength: (length) {
-                    print("LENGTh");
-                    print(selectedPeriodLength);
-                    print(length);
-                    setState(() {
-                      selectedPeriodLength = length;
-                    });
+                  getLabel: (TransactionWallet? item) {
+                    return item?.name ?? "all-accounts".tr();
                   },
-                  initialSelectedPeriodLength: selectedPeriodLength,
-                  setSelectedRecurrence: (recurrence) {
-                    setState(() {
-                      selectedRecurrence = recurrence;
-                    });
+                  onSelected: onSelected,
+                  getSelected: getSelected,
+                  getCustomBorderColor: (TransactionWallet? item) {
+                    if (item == null) return null;
+                    return dynamicPastel(
+                      context,
+                      lightenPastel(
+                        HexColor(
+                          item.colour,
+                          defaultColor: Theme.of(context).colorScheme.primary,
+                        ),
+                        amount: 0.3,
+                      ),
+                      amount: 0.4,
+                    );
                   },
-                  initialSelectedRecurrence: selectedRecurrence,
-                  setSelectedStartDate: (date) {
-                    setState(() {
-                      selectedStartDate = date;
-                    });
-                  },
-                  initialSelectedStartDate: selectedStartDate,
-                  setSelectedEndDate: (date) {
-                    setState(() {
-                      selectedEndDate = date;
-                    });
-                  },
-                  initialSelectedEndDate: selectedEndDate,
-                  afterAmountEnteredDismissed: (amountEntered) {
-                    if (widget.budget != null &&
-                        amountEntered != null &&
-                        budgetAmount != null) {
-                      amountEntered = amountRatioToPrimaryCurrencyGivenPk(
-                              Provider.of<AllWallets>(context, listen: false),
-                              selectedWalletPk) *
-                          amountEntered;
-                      if (budgetAmount < amountEntered &&
-                          increaseBudgetWarningShown == false) {
-                        increaseBudgetWarningShown = true;
-                        openPopup(
-                          context,
-                          title: "increase-budget-warning".tr(),
-                          description:
-                              "increase-budget-warning-description".tr(),
-                          icon: appStateSettings["outlinedIcons"]
-                              ? Icons.warning_outlined
-                              : Icons.warning_rounded,
-                          onSubmitLabel: "ok".tr(),
-                          onSubmit: () {
-                            Navigator.pop(context);
-                          },
-                        );
-                      }
-                    }
-                  },
-                  setSelectedWalletPk: setSelectedWalletPk,
-                  initialSelectedWalletPk: selectedWalletPk,
                 ),
                 SizedBox(height: 10),
               ],
             ),
-            // SliverToBoxAdapter(
-            //   child: widget.budget == null
-            //       ? SizedBox.shrink()
-            //       : Padding(
-            //           padding: const EdgeInsetsDirectional.only(
-            //             start: 20,
-            //             end: 20,
-            //             bottom: 15,
-            //           ),
-            //           child: SettingsContainer(
-            //             isOutlined: true,
-            //             onTap: () async {
-            //               Budget budget = await createBudget();
-            //               pushRoute(
-            //                 context,
-            //                 StreamBuilder<Budget>(
-            //                   stream:
-            //                       database.getBudget(widget.budget!.budgetPk),
-            //                   builder: (context, snapshot) {
-            //                     if (snapshot.data == null)
-            //                       return SizedBox.shrink();
-            //                     return EditBudgetLimitsPage(
-            //                       budget: budget,
-            //                       currentIsAbsoluteSpendingLimit:
-            //                           snapshot.data!.isAbsoluteSpendingLimit,
-            //                     );
-            //                   },
-            //                 ),
-            //               );
-            //             },
-            //             title:  widget.budget?.income == true
-            //                ? "set-saving-goals".tr()
-            //                : "set-spending-goals".tr(),
-            //             icon: appStateSettings["outlinedIcons"]
-            //                 ? Icons.fact_check_outlined
-            //                 : Icons.fact_check_rounded,
-            //             iconScale: 1,
-            //             isWideOutlined: true,
-            //           ),
-            //         ),
-            // ),
-            SliverToBoxAdapter(
-              child: widget.budget == null
-                  ? SizedBox.shrink()
-                  : Padding(
-                      padding: EdgeInsetsDirectional.symmetric(
-                          horizontal: getHorizontalPaddingConstrained(context)),
-                      child: Padding(
-                        padding: const EdgeInsetsDirectional.only(
-                          start: 20,
-                          end: 20,
-                          bottom: 15,
-                        ),
-                        child: Button(
-                          flexibleLayout: true,
-                          icon: appStateSettings["outlinedIcons"]
-                              ? Icons.fact_check_outlined
-                              : Icons.fact_check_rounded,
-                          label: widget.budget?.income == true
-                              ? "set-saving-goals".tr()
-                              : "set-spending-goals".tr(),
-                          onTap: () async {
-                            Budget budget = await createBudget();
-                            pushRoute(
-                              context,
-                              StreamBuilder<Budget>(
-                                stream:
-                                    database.getBudget(widget.budget!.budgetPk),
-                                builder: (context, snapshot) {
-                                  if (snapshot.data == null)
-                                    return SizedBox.shrink();
-                                  return EditBudgetLimitsPage(
-                                    budget: budget,
-                                    currentIsAbsoluteSpendingLimit:
-                                        snapshot.data!.isAbsoluteSpendingLimit,
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                          color:
-                              Theme.of(context).colorScheme.secondaryContainer,
-                          textColor: Theme.of(context)
-                              .colorScheme
-                              .onSecondaryContainer,
-                        ),
-                      ),
-                    ),
-            ),
-            SliverStickyLabelDivider(
-              info: "select-color".tr(),
-              sliver: SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.only(bottom: 8),
-                  child: Container(
-                    height: 65,
-                    child: SelectColor(
-                      horizontalList: true,
-                      selectedColor: selectedColor,
-                      setSelectedColor: setSelectedColor,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            widget.budget != null
-                ? SliverToBoxAdapter(child: SizedBox.shrink())
-                : SliverStickyLabelDivider(
-                    info: "budget-type".tr(),
-                    sliver: ColumnSliver(
-                      children: [
-                        SizedBox(height: 5),
-                        SelectChips(
-                          allowMultipleSelected: false,
-                          extraWidgetBefore: Transform.scale(
-                            scale: 1.3,
-                            child: IconButton(
-                              padding: EdgeInsetsDirectional.zero,
-                              visualDensity: VisualDensity.compact,
-                              icon: Icon(
-                                appStateSettings["outlinedIcons"]
-                                    ? Icons.info_outlined
-                                    : Icons.info_outline_rounded,
-                                size: 19,
-                              ),
-                              onPressed: openBudgetTypeInfo,
-                            ),
-                          ),
-                          onLongPress: (_) {
-                            openBudgetTypeInfo();
-                          },
-                          wrapped: true,
-                          items: <String>[
-                            "Added Only",
-                            "All Transactions",
-                            ...(appStateSettings["sharedBudgets"]
-                                ? ["Shared Group Budget"]
-                                : [])
-                          ],
-                          getLabel: (String item) {
-                            if (item == "Shared Group Budget")
-                              return item + " (Unsupported)";
-                            else if (item == "All Transactions")
-                              return "all-transactions".tr();
-                            else if (item == "Added Only")
-                              return "added-only".tr();
-                            return item;
-                          },
-                          onSelected: (String item) {
-                            setSelectedBudgetType(item);
-                          },
-                          getSelected: (String item) {
-                            if (selectedShared == true &&
-                                selectedAddedTransactionsOnly == true &&
-                                item == "Shared Group Budget") {
-                              return true;
-                            } else if (selectedShared == false &&
-                                selectedAddedTransactionsOnly == true &&
-                                item == "Added Only") {
-                              return true;
-                            } else if (selectedShared == false &&
-                                selectedAddedTransactionsOnly == false &&
-                                item == "All Transactions") {
-                              return true;
-                            }
-                            return false;
-                          },
-                        ),
-                        SizedBox(height: 10),
-                      ],
-                    ),
-                  ),
-            SliverStickyLabelDivider(
-              info: "transactions-to-include".tr(),
-              visible:
-                  !(selectedShared == true || selectedAddedTransactionsOnly) &&
-                      ((widget.budget != null &&
-                              widget.budget!.sharedKey == null &&
-                              widget.budget!.addedTransactionsOnly == false) ||
-                          widget.budget == null),
-              sliver: SliverToBoxAdapter(
-                child: FutureBuilder<TransactionCategory?>(
-                    future: database.getCategory("0").$2,
-                    builder: (context, snapshot) {
-                      return AnimatedExpanded(
-                        expand: !(selectedShared == true ||
-                            selectedAddedTransactionsOnly),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(height: 5),
-                            SelectChips(
-                              extraWidgetBefore: Transform.scale(
-                                scale: 1.3,
-                                child: IconButton(
-                                  padding: EdgeInsetsDirectional.zero,
-                                  visualDensity: VisualDensity.compact,
-                                  icon: Icon(
-                                    appStateSettings["outlinedIcons"]
-                                        ? Icons.info_outlined
-                                        : Icons.info_outline_rounded,
-                                    size: 19,
-                                  ),
-                                  onPressed: openTransactionsToIncludeInfo,
-                                ),
-                              ),
-                              onLongPress: (_) {
-                                openTransactionsToIncludeInfo();
-                              },
-                              items: [
-                                BudgetTransactionFilters
-                                    .defaultBudgetTransactionFilters,
-                                BudgetTransactionFilters.includeIncome,
-                                BudgetTransactionFilters.includeDebtAndCredit,
-                                BudgetTransactionFilters.addedToOtherBudget,
-                                BudgetTransactionFilters.addedToObjective,
-                                ...(appStateSettings["sharedBudgets"]
-                                    ? [
-                                        BudgetTransactionFilters
-                                            .sharedToOtherBudget
-                                      ]
-                                    : []),
-                                if (snapshot.hasData)
-                                  BudgetTransactionFilters
-                                      .includeBalanceCorrection,
-                              ],
-                              getLabel: (dynamic item) {
-                                return item ==
-                                        BudgetTransactionFilters
-                                            .defaultBudgetTransactionFilters
-                                    ? "default".tr()
-                                    : item ==
-                                            BudgetTransactionFilters
-                                                .includeIncome
-                                        ? selectedIncome
-                                            ? "include-expense".tr()
-                                            : "include-income".tr()
-                                        : item ==
-                                                BudgetTransactionFilters
-                                                    .addedToOtherBudget
-                                            ? "added-to-other-budgets".tr()
-                                            : item ==
-                                                    BudgetTransactionFilters
-                                                        .addedToObjective
-                                                ? "added-to-goal".tr()
-                                                : item ==
-                                                        BudgetTransactionFilters
-                                                            .sharedToOtherBudget
-                                                    ? "shared-to-other-budgets"
-                                                        .tr()
-                                                    : item ==
-                                                            BudgetTransactionFilters
-                                                                .includeDebtAndCredit
-                                                        ? "include-debt-and-credit"
-                                                            .tr()
-                                                        : item ==
-                                                                BudgetTransactionFilters
-                                                                    .includeBalanceCorrection
-                                                            ? "balance-correction"
-                                                                .tr()
-                                                            : "";
-                              },
-                              onSelected: (dynamic item) {
-                                if (item ==
-                                    BudgetTransactionFilters
-                                        .defaultBudgetTransactionFilters) {
-                                  if (selectedBudgetTransactionFilters.contains(
-                                      BudgetTransactionFilters
-                                          .defaultBudgetTransactionFilters)) {
-                                    selectedBudgetTransactionFilters = [];
-                                  } else {
-                                    selectedBudgetTransactionFilters = [
-                                      BudgetTransactionFilters
-                                          .defaultBudgetTransactionFilters
-                                    ];
-                                  }
-                                } else {
-                                  if (selectedBudgetTransactionFilters.contains(
-                                      BudgetTransactionFilters
-                                          .defaultBudgetTransactionFilters)) {
-                                    selectedBudgetTransactionFilters = [];
-                                  }
-                                  if (selectedBudgetTransactionFilters
-                                      .contains(item)) {
-                                    selectedBudgetTransactionFilters
-                                        .remove(item);
-                                  } else {
-                                    selectedBudgetTransactionFilters.add(item);
-                                  }
-                                }
-
-                                setState(() {});
-                                determineBottomButton();
-                              },
-                              getSelected: (dynamic item) {
-                                if (selectedBudgetTransactionFilters.contains(
-                                    BudgetTransactionFilters
-                                        .defaultBudgetTransactionFilters))
-                                  return isFilterSelectedWithDefaults(
-                                      selectedBudgetTransactionFilters, item);
-                                return selectedBudgetTransactionFilters
-                                    .contains(item);
-                              },
-                            ),
-                            AnimatedExpanded(
-                              expand: appStateSettings["sharedBudgets"] ==
-                                      true &&
-                                  (selectedBudgetTransactionFilters.contains(
-                                      BudgetTransactionFilters
-                                          .sharedToOtherBudget)),
-                              child: SelectChips(
-                                items: ["All", ...allMembersOfAllBudgets],
-                                getLabel: (String item) {
-                                  return getMemberNickname(item);
-                                },
-                                onSelected: (String item) {
-                                  if (item == "All" &&
-                                      selectedMemberTransactionFilters ==
-                                          null) {
-                                    selectedMemberTransactionFilters = [];
-                                    setState(() {});
-                                    determineBottomButton();
-                                    return;
-                                  } else if (item == "All" &&
-                                      selectedMemberTransactionFilters !=
-                                          null) {
-                                    selectedMemberTransactionFilters = null;
-                                    setState(() {});
-                                    determineBottomButton();
-                                    return;
-                                  }
-                                  if (selectedMemberTransactionFilters ==
-                                      null) {
-                                    selectedMemberTransactionFilters = [];
-                                  }
-                                  if (selectedMemberTransactionFilters!
-                                      .contains(item)) {
-                                    selectedMemberTransactionFilters!
-                                        .remove(item);
-                                  } else {
-                                    selectedMemberTransactionFilters!.add(item);
-                                  }
-                                  setState(() {});
-                                  determineBottomButton();
-                                },
-                                getSelected: (String item) {
-                                  if (item == "All" &&
-                                      selectedMemberTransactionFilters == null)
-                                    return true;
-                                  if (item != "All" &&
-                                      selectedMemberTransactionFilters == null)
-                                    return true;
-                                  return selectedMemberTransactionFilters!
-                                      .contains(item);
-                                },
-                              ),
-                            ),
-                            SizedBox(height: 10),
-                          ],
-                        ),
-                      );
-                    }),
-              ),
-            ),
-            if (widget.budget != null && widget.budget!.addedTransactionsOnly)
-              SliverToBoxAdapter(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsetsDirectional.only(
-                            start: 15, end: 15, top: 25),
-                        child: TextFont(
-                          text: "added-budget-description".tr(),
-                          fontSize: 14,
-                          textColor: getColor(context, "textLight"),
-                          maxLines: 5,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            SliverStickyLabelDivider(
-              info: "select-accounts".tr(),
-              visible:
-                  !(selectedShared == true || selectedAddedTransactionsOnly) &&
-                      ((widget.budget != null &&
-                              widget.budget!.sharedKey == null &&
-                              widget.budget!.addedTransactionsOnly == false) ||
-                          widget.budget == null),
-              sliver: SliverToBoxAdapter(
-                child: StreamBuilder<List<TransactionWallet>>(
-                  stream: database.watchAllWallets(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      return AnimatedExpanded(
-                        expand: !(selectedShared == true ||
-                            selectedAddedTransactionsOnly),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(height: 5),
-                            SelectChips(
-                              items: [null, ...snapshot.data!],
-                              onLongPress: (TransactionWallet? item) {
-                                pushRoute(
-                                  context,
-                                  AddWalletPage(
-                                    wallet: item,
-                                    routesToPopAfterDelete:
-                                        RoutesToPopAfterDelete.PreventDelete,
-                                  ),
-                                );
-                              },
-                              getLabel: (TransactionWallet? item) {
-                                return item?.name ?? "all-accounts".tr();
-                              },
-                              onSelected: (TransactionWallet? item) {
-                                // print(item);
-                                // print(selectedWalletFks);
-                                if (selectedWalletFks == null && item != null) {
-                                  selectedWalletFks = [];
-                                }
-                                if (item != null) {
-                                  if (selectedWalletFks!
-                                      .contains(item.walletPk)) {
-                                    selectedWalletFks!.remove(item.walletPk);
-                                  } else {
-                                    selectedWalletFks!.add(item.walletPk);
-                                  }
-                                }
-                                if (item == null ||
-                                    (selectedWalletFks ?? []).length <= 0) {
-                                  selectedWalletFks = null;
-                                }
-                                setState(() {});
-                                determineBottomButton();
-                              },
-                              getSelected: (TransactionWallet? item) {
-                                return selectedWalletFks == null && item == null
-                                    ? true
-                                    : (selectedWalletFks ?? [])
-                                        .contains(item?.walletPk);
-                              },
-                              getCustomBorderColor: (TransactionWallet? item) {
-                                if (item == null) return null;
-                                return dynamicPastel(
-                                  context,
-                                  lightenPastel(
-                                    HexColor(
-                                      item.colour,
-                                      defaultColor:
-                                          Theme.of(context).colorScheme.primary,
-                                    ),
-                                    amount: 0.3,
-                                  ),
-                                  amount: 0.4,
-                                );
-                              },
-                            ),
-                            SizedBox(height: 10),
-                          ],
-                        ),
-                      );
-                    } else {
-                      return SizedBox.shrink();
-                    }
-                  },
-                ),
-              ),
-            ),
-            SliverStickyLabelDivider(
-              info: "select-categories".tr(),
-              extraInfo: getSelectedCategoriesText(selectedCategoryPks),
-              visible:
-                  !(selectedShared == true || selectedAddedTransactionsOnly) &&
-                      ((widget.budget != null &&
-                              widget.budget!.sharedKey == null &&
-                              widget.budget!.addedTransactionsOnly == false) ||
-                          widget.budget == null),
-              sliver: SliverToBoxAdapter(
-                child: AnimatedOpacity(
-                  duration: Duration(milliseconds: 500),
-                  opacity: (selectedCategoryPksExclude == null ||
-                          selectedCategoryPksExclude?.isEmpty == true)
-                      ? 1
-                      : 0.3,
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.only(bottom: 5),
-                    child: AnimatedExpanded(
-                      expand: !(selectedShared == true ||
-                          selectedAddedTransactionsOnly),
-                      child: SelectCategory(
-                        horizontalList: true,
-                        selectedCategories: selectedCategoryPks,
-                        setSelectedCategories: (categories) {
-                          checkPopupBalanceCorrectionSelectedWarning(
-                              context, categories);
-                          setSelectedCategories(categories);
-                        },
-                        showSelectedAllCategoriesIfNoneSelected: true,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverStickyLabelDivider(
-              info: "select-exclude-categories".tr(),
-              extraInfo: getSelectedCategoriesText(selectedCategoryPksExclude,
-                  defaultText: "no-categories".tr()),
-              visible:
-                  !(selectedShared == true || selectedAddedTransactionsOnly) &&
-                      ((widget.budget != null &&
-                              widget.budget!.sharedKey == null &&
-                              widget.budget!.addedTransactionsOnly == false) ||
-                          widget.budget == null),
-              sliver: SliverToBoxAdapter(
-                child: AnimatedOpacity(
-                  duration: Duration(milliseconds: 500),
-                  opacity: (selectedCategoryPks == null ||
-                          selectedCategoryPks?.isEmpty == true)
-                      ? 1
-                      : 0.3,
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.only(bottom: 5),
-                    child: AnimatedExpanded(
-                      expand: !(selectedShared == true ||
-                          selectedAddedTransactionsOnly),
-                      child: SelectCategory(
-                        horizontalList: true,
-                        selectedCategories: selectedCategoryPksExclude,
-                        setSelectedCategories: (categories) {
-                          checkPopupBalanceCorrectionSelectedWarning(
-                              context, categories);
-                          setSelectedCategoriesExclude(categories);
-                        },
-                        showSelectedAllCategoriesIfNoneSelected: false,
-                        fadeOutWhenSelected: true,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-          listWidgets: [
-            widget.budget != null && widget.budget!.sharedKey != null
-                ? SharedBudgetSettings(
-                    budget: widget.budget!,
-                  )
-                : SizedBox.shrink(),
-            SizedBox(height: 13),
-            Container(height: 70),
-          ],
-        ),
-      ),
+          );
+        } else {
+          return SizedBox.shrink();
+        }
+      },
     );
   }
 }
@@ -1439,8 +1479,8 @@ class _BudgetDetailsState extends State<BudgetDetails> {
   void initState() {
     selectedAmount = widget.initialSelectedAmount;
     selectedPeriodLength = widget.initialSelectedPeriodLength ?? 1;
-    selectedStartDate = widget.initialSelectedStartDate ??
-        DateTime(DateTime.now().year, DateTime.now().month, 1);
+    selectedStartDate =
+        widget.initialSelectedStartDate ?? DateTime.now().firstDayOfMonth();
     selectedEndDate = widget.initialSelectedEndDate;
     selectedRecurrence = widget.initialSelectedRecurrence ?? "Monthly";
     selectedWalletPk =
@@ -1474,7 +1514,7 @@ class _BudgetDetailsState extends State<BudgetDetails> {
             widget.determineBottomButton();
           },
           next: () async {
-            Navigator.pop(context);
+            popRoute(context);
           },
           nextLabel: "set-amount".tr(),
           enableWalletPicker: true,
@@ -1510,7 +1550,7 @@ class _BudgetDetailsState extends State<BudgetDetails> {
             setSelectedPeriodLength(amount);
           },
           next: () async {
-            Navigator.pop(context);
+            popRoute(context);
           },
           nextLabel: "set-period-length".tr(),
         ),
@@ -1568,7 +1608,7 @@ class _BudgetDetailsState extends State<BudgetDetails> {
                 selectedRecurrenceDisplay = namesRecurrence[value];
               }
             });
-            Navigator.of(context).pop();
+            popRoute(context);
             widget.determineBottomButton();
           },
         ),
@@ -1583,12 +1623,7 @@ class _BudgetDetailsState extends State<BudgetDetails> {
         allTime: false,
         dateTimeRange: DateTimeRange(
           start: selectedStartDate,
-          end: selectedEndDate ??
-              DateTime(
-                selectedStartDate.year,
-                selectedStartDate.month,
-                selectedStartDate.day + 7,
-              ),
+          end: selectedEndDate ?? selectedStartDate.justDay(dayOffset: 7),
         ),
       ),
       allTimeButton: false,
@@ -1887,7 +1922,7 @@ class SelectBudgetIncomeTypePopup extends StatelessWidget {
                       : Icons.savings_rounded,
                   onTap: () {
                     setBudgetIncome(true);
-                    Navigator.pop(context);
+                    popRoute(context);
                   },
                   afterWidget: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
@@ -1917,7 +1952,7 @@ class SelectBudgetIncomeTypePopup extends StatelessWidget {
                       : Icons.request_quote_rounded,
                   onTap: () async {
                     setBudgetIncome(false);
-                    Navigator.pop(context);
+                    popRoute(context);
                   },
                   afterWidget: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
@@ -1970,7 +2005,7 @@ class SelectBudgetTypePopup extends StatelessWidget {
                       : Icons.folder_rounded,
                   onTap: () {
                     setBudgetType("Added Only");
-                    Navigator.pop(context, "Added Only");
+                    popRoute(context, "Added Only");
                   },
                   afterWidget: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
@@ -2010,7 +2045,7 @@ class SelectBudgetTypePopup extends StatelessWidget {
                       : Icons.category_rounded,
                   onTap: () async {
                     setBudgetType("All Transactions");
-                    Navigator.pop(context, "All Transactions");
+                    popRoute(context, "All Transactions");
                   },
                   afterWidget: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
@@ -2128,7 +2163,7 @@ class _ViewBudgetTransactionFilterInfoState
                     if (widget.popOnDefault == true &&
                         selectedBudgetFilters.contains(BudgetTransactionFilters
                             .defaultBudgetTransactionFilters)) {
-                      Navigator.pop(context);
+                      popRoute(context);
                     } else {
                       onTap(BudgetTransactionFilters
                           .defaultBudgetTransactionFilters);

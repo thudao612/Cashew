@@ -36,6 +36,8 @@ class GlobalLoadingProgressState extends State<GlobalLoadingProgress> {
         child: Stack(
           children: [
             Container(
+              constraints:
+                  BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width),
               color: getBottomNavbarBackgroundColor(
                 brightness: Theme.of(context).brightness,
                 colorScheme: Theme.of(context).colorScheme,
@@ -44,6 +46,8 @@ class GlobalLoadingProgressState extends State<GlobalLoadingProgress> {
               height: loadingBarHeight,
             ),
             AnimatedContainer(
+              constraints:
+                  BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width),
               duration: Duration(milliseconds: 300),
               curve: Curves.easeInOut,
               height: loadingBarHeight,
@@ -83,7 +87,6 @@ class GlobalLoadingIndeterminateState
   final _debouncer = Debouncer(milliseconds: 5000);
 
   void setVisibility(bool visible, {double? opacity}) {
-    print("Visibility set to: " + visible.toString());
     setState(() {
       this.visible = visible;
       this.opacity = visible == false ? 1 : opacity ?? 1;

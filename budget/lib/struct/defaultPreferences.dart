@@ -1,9 +1,7 @@
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/pages/homePage/homePageLineGraph.dart';
-import 'package:budget/pages/walletDetailsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/notificationsSettings.dart';
@@ -12,7 +10,6 @@ import 'package:budget/widgets/selectAmount.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/services.dart';
 
 // default settings, defaultSettings, initial settings
@@ -29,6 +26,7 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "numberCountUpAnimation": true,
     "appAnimations": AppAnimations.all.index,
     "showFAQAndHelpLink": true,
+    "showExtraInfoText": true,
     "selectedWalletPk": "0",
     "selectedSubscriptionType": 0,
     "accentColor": toHexString(Color(0xFF0F766E)),
@@ -138,12 +136,14 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "lastBackup": DateTime.now().subtract(Duration(days: 1)).toString(),
     "lastLoginVersion": "",
     "numLogins": 0,
+    "enableGoogleLoginFlyIn": false,
     "openedStoreRating": false,
     "dismissedStoreRating": false,
     "submittedFeedback": false,
     "canShowBackupReminderPopup": true,
     "canShowTransactionActionButtonTip": true,
     "autoLoginDisabledOnWebTip": true,
+    "forceAutoLogin": false,
     "allSpendingPageTip": true,
     "notifications": true,
     "notificationHour": 20,
@@ -174,6 +174,7 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "font": "Inter",
     "forceSmallHeader": false,
     "animationSpeed": 1.0,
+    "logging": false,
     "sharedBudgets": false,
     "emailScanning": false,
     "emailScanningPullToRefresh": false,
@@ -189,9 +190,12 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "iOSEmulate": false,
     "iOSAnimatedGoo": false,
     "expandedNavigationSidebar": true,
-    "locale": "System",
+    "locale": "System", // the locale code or "System"
+    "firstDayOfWeek": -1, // -1: Locale/System, 0: Sunday, 1: Monday,
     "disableShadows": false,
+    "showBillSplitterShortcut": false,
     "showTransactionPk": false,
+    "showMethodAdded": false,
     "showBackupLimit": false,
     "outlinedIcons": false,
     "premiumPopupAddTransactionCount": -5,
@@ -200,6 +204,7 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "previewDemo": false,
     "purchaseID": null,
     "showAccountLabelTagInTransactionEntry": false,
+    "showCurrencyLabel": false,
     "showTransactionsMonthlySpendingSummary": true,
     "showTransactionsBalanceTransferTab": true,
     "balanceTransferAmountColor": "green-or-red", // "green-or-red", "no-color"
@@ -220,6 +225,9 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "extraZerosButton": null, //will be null, 00 or 000
     "numberPadFormat": NumberPadFormat.format123.index,
     "numberPadHapticFeedback": false,
+    "savingHapticFeedback": false,
+    "closeNavigationHapticFeedback": false,
+    "tabNavigationHapticFeedback": false,
     "percentagePrecision": 0, //number of decimals to round percentages to
     "allSpendingLastPage": 0, //index of the last tab on the all spending page
     "loansLastPage": 0, //index of the last tab on the loans page
@@ -232,10 +240,8 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "selectedPeriodCycleType": CycleType.allTime.index,
     "cyclePeriodLength": 1,
     "cycleReoccurrence": BudgetReoccurence.monthly.index,
-    "cycleStartDate":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
-    "customPeriodStartDate":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+    "cycleStartDate": DateTime.now().firstDayOfMonth().toString(),
+    "customPeriodStartDate": DateTime.now().firstDayOfMonth().toString(),
     "customPeriodEndDate": null,
     "customPeriodPastDays": 30,
     // For showing information within a certain cycle for pie chart
@@ -243,10 +249,9 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "selectedPeriodCycleTypePieChart": CycleType.allTime.index,
     "cyclePeriodLengthPieChart": 1,
     "cycleReoccurrencePieChart": BudgetReoccurence.monthly.index,
-    "cycleStartDatePieChart":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+    "cycleStartDatePieChart": DateTime.now().firstDayOfMonth().toString(),
     "customPeriodStartDatePieChart":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+        DateTime.now().firstDayOfMonth().toString(),
     "customPeriodEndDatePieChart": null,
     "customPeriodPastDaysPieChart": 30,
     // For showing information within a certain cycle for net worth
@@ -254,10 +259,9 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "selectedPeriodCycleTypeNetWorth": CycleType.allTime.index,
     "cyclePeriodLengthNetWorth": 1,
     "cycleReoccurrenceNetWorth": BudgetReoccurence.monthly.index,
-    "cycleStartDateNetWorth":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+    "cycleStartDateNetWorth": DateTime.now().firstDayOfMonth().toString(),
     "customPeriodStartDateNetWorth":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+        DateTime.now().firstDayOfMonth().toString(),
     "customPeriodEndDateNetWorth": null,
     "customPeriodPastDaysNetWorth": 30,
     // For showing information within a certain cycle for income and expenses (allSpendingSummary)
@@ -266,9 +270,9 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "cyclePeriodLengthAllSpendingSummary": 1,
     "cycleReoccurrenceAllSpendingSummary": BudgetReoccurence.monthly.index,
     "cycleStartDateAllSpendingSummary":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+        DateTime.now().firstDayOfMonth().toString(),
     "customPeriodStartDateAllSpendingSummary":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+        DateTime.now().firstDayOfMonth().toString(),
     "customPeriodEndDateAllSpendingSummary": null,
     "customPeriodPastDaysAllSpendingSummary": 30,
     // For showing information within a certain cycle for overdue and upcoming (overdueUpcoming)
@@ -277,9 +281,9 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "cyclePeriodLengthOverdueUpcoming": 1,
     "cycleReoccurrenceOverdueUpcoming": BudgetReoccurence.monthly.index,
     "cycleStartDateOverdueUpcoming":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+        DateTime.now().firstDayOfMonth().toString(),
     "customPeriodStartDateOverdueUpcoming":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+        DateTime.now().firstDayOfMonth().toString(),
     "customPeriodEndDateOverdueUpcoming": null,
     "customPeriodPastDaysOverdueUpcoming": 30,
     // For showing information within a certain cycle for credits and debts (loans) (creditDebts)
@@ -287,10 +291,9 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     "selectedPeriodCycleTypeCreditDebts": CycleType.allTime.index,
     "cyclePeriodLengthCreditDebts": 1,
     "cycleReoccurrenceCreditDebts": BudgetReoccurence.monthly.index,
-    "cycleStartDateCreditDebts":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+    "cycleStartDateCreditDebts": DateTime.now().firstDayOfMonth().toString(),
     "customPeriodStartDateCreditDebts":
-        DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+        DateTime.now().firstDayOfMonth().toString(),
     "customPeriodEndDateCreditDebts": null,
     "customPeriodPastDaysCreditDebts": 30,
     // // For showing information within a certain cycle for wallets homepage section
@@ -299,9 +302,9 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     // "cyclePeriodLengthWallets": 1,
     // "cycleReoccurrenceWallets": BudgetReoccurence.monthly.index,
     // "cycleStartDateWallets":
-    //     DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+    //     DateTime.now().firstDayOfMonth().toString(),
     // "customPeriodStartDateWallets":
-    //     DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+    //     DateTime.now().firstDayOfMonth().toString(),
     // "customPeriodEndDateWallets": null,
     // "customPeriodPastDaysWallets": 30,
     // // For showing information within a certain cycle for walletsList homepage section
@@ -310,9 +313,9 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
     // "cyclePeriodLengthWalletsList": 1,
     // "cycleReoccurrenceWalletsList": BudgetReoccurence.monthly.index,
     // "cycleStartDateWalletsList":
-    //     DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+    //     DateTime.now().firstDayOfMonth().toString(),
     // "customPeriodStartDateWalletsList":
-    //     DateTime(DateTime.now().year, DateTime.now().month, 1).toString(),
+    //     DateTime.now().firstDayOfMonth().toString(),
     // "customPeriodEndDateWalletsList": null,
     // "customPeriodPastDaysWalletsList": 30,
     // *********************************************************** //

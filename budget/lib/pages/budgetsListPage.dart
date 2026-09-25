@@ -1,21 +1,17 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addBudgetPage.dart';
-import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/pages/editBudgetPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/budgetContainer.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
-import 'package:budget/widgets/noResults.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
 import 'package:budget/widgets/openPopup.dart';
-import 'package:budget/widgets/util/widgetSize.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart'
     hide SliverReorderableList, ReorderableDelayedDragStartListener;
-
 import 'addButton.dart';
 
 class BudgetsListPage extends StatefulWidget {
@@ -45,9 +41,7 @@ class BudgetsListPageState extends State<BudgetsListPage> {
       title: "budgets".tr(),
       backButton: widget.enableBackButton,
       dragDownToDismiss: widget.enableBackButton,
-      horizontalPadding: enableDoubleColumn(context) == false
-          ? getHorizontalPaddingConstrained(context)
-          : 0,
+      horizontalPaddingConstrained: enableDoubleColumn(context) == false,
       actions: [
         IconButton(
           padding: EdgeInsetsDirectional.all(15),

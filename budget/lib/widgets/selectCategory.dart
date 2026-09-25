@@ -1,12 +1,12 @@
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
+import 'package:budget/functions.dart';
 import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/categoryIcon.dart';
-import 'package:budget/widgets/incomeExpenseTabSelector.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/tappable.dart';
@@ -17,7 +17,7 @@ import 'package:flutter/material.dart'
 import 'package:flutter/services.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 
-import '../pages/addButton.dart';
+import 'package:budget/pages/addButton.dart';
 
 class SelectCategory extends StatefulWidget {
   SelectCategory({
@@ -87,7 +87,7 @@ class _SelectCategoryState extends State<SelectCategory> {
     super.initState();
     Future.delayed(Duration(milliseconds: 0), () {
       if (widget.selectedCategory != null && widget.skipIfSet == true) {
-        if (widget.popRoute) Navigator.pop(context, widget.selectedCategory);
+        if (widget.popRoute) popRoute(context, widget.selectedCategory);
         if (widget.next != null) {
           widget.next!();
         }
@@ -191,8 +191,7 @@ class _SelectCategoryState extends State<SelectCategory> {
                             selectedCategories.add(category.categoryPk);
                           });
                           Future.delayed(Duration(milliseconds: 70), () {
-                            if (widget.popRoute)
-                              Navigator.pop(context, category);
+                            if (widget.popRoute) popRoute(context, category);
                             if (widget.next != null) {
                               widget.next!();
                             }
@@ -331,7 +330,7 @@ class _SelectCategoryState extends State<SelectCategory> {
                           selectedCategories.add(category.categoryPk);
                         });
                         Future.delayed(Duration(milliseconds: 70), () {
-                          if (widget.popRoute) Navigator.pop(context, category);
+                          if (widget.popRoute) popRoute(context, category);
                           if (widget.next != null) {
                             widget.next!();
                           }
@@ -463,7 +462,7 @@ class _SelectCategoryState extends State<SelectCategory> {
                 //                     Future.delayed(Duration(milliseconds: 70),
                 //                         () {
                 //                       if (widget.popRoute)
-                //                         Navigator.pop(context);
+                //                         popRoute(context);
                 //                       if (widget.next != null) {
                 //                         widget.next!();
                 //                       }

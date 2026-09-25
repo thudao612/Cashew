@@ -1,12 +1,12 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/upcomingOverdueTransactionsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/notificationsGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/upcomingTransactionsFunctions.dart';
+import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/notificationsSettings.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:flutter/foundation.dart';
@@ -16,24 +16,25 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 Future<String?> initializeNotifications() async {
   // Since iOS cannot send scheduled notifications when the app is open
   // There is no need to listen to incoming notification payloads
-  if (getPlatform(ignoreEmulation: true) == PlatformOS.isIOS) {
-    return "";
-  }
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('notification_icon_android2');
-  final DarwinInitializationSettings initializationSettingsDarwin =
-      DarwinInitializationSettings(
-          onDidReceiveLocalNotification: (_, __, ___, ____) {});
+  if (getPlatform(ignoreEmulation: true) != PlatformOS.isIOS) {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('notification_icon_android2');
+    final DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings(
+            onDidReceiveLocalNotification: (_, __, ___, ____) {});
 
-  final InitializationSettings initializationSettings = InitializationSettings(
-    android: initializationSettingsAndroid,
-    iOS: initializationSettingsDarwin,
-  );
-  await flutterLocalNotificationsPlugin.initialize(
-    initializationSettings,
-    onDidReceiveBackgroundNotificationResponse: onSelectNotification,
-    onDidReceiveNotificationResponse: onSelectNotification,
-  );
+    final InitializationSettings initializationSettings =
+        InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsDarwin,
+    );
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveBackgroundNotificationResponse: onSelectNotification,
+      onDidReceiveNotificationResponse: onSelectNotification,
+    );
+  }
+
   final NotificationAppLaunchDetails? notificationAppLaunchDetails =
       await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
   NotificationResponse? payload =
@@ -66,12 +67,15 @@ Future<bool> runNotificationPayLoads(context) async {
   if (kIsWeb) return false;
   if (notificationPayload == null) return false;
   if (notificationPayload == "addTransaction") {
-    pushRoute(
-      context,
-      AddTransactionPage(
-        routesToPopAfterDelete: RoutesToPopAfterDelete.None,
-      ),
-    );
+    // Add a delay so the keyboard can focus
+    await Future.delayed(Duration(milliseconds: 50), () async {
+      pushRoute(
+        context,
+        AddTransactionPage(
+          routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+        ),
+      );
+    });
     return true;
   } else if (notificationPayload == "upcomingTransaction") {
     // When the notification comes in, the transaction is past due!

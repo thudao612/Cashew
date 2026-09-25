@@ -1,19 +1,15 @@
 import 'dart:async';
 import 'package:async/async.dart';
-
 import 'dart:convert';
-
 import 'package:budget/database/binary_string_conversion.dart';
 import 'package:budget/database/tables.dart';
-import 'package:budget/main.dart';
+import 'package:budget/functions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
-import 'package:budget/widgets/globalSnackbar.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
-import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/widgets/util/debouncer.dart';
 import 'package:budget/widgets/walletEntry.dart';
 // import 'package:drift/web.dart';
@@ -24,7 +20,6 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:universal_html/html.dart' as html;
 import 'dart:io';
 
 bool isSyncBackupFile(String? backupFileName) {
@@ -192,6 +187,17 @@ Future<dynamic> cancelAndPreventSyncOperation() async {
   return await syncDataCompleter.operation.cancel();
 }
 
+Future<bool> runForceSignIn(BuildContext context) async {
+  if (appStateSettings["forceAutoLogin"] == false) return false;
+  if (appStateSettings["hasSignedIn"] == false) return false;
+  return await signInGoogle(
+    gMailPermissions: false,
+    waitForCompletion: false,
+    silentSignIn: true,
+    context: context,
+  );
+}
+
 Future<bool> syncData(BuildContext context) async {
   // Create a new instance of the completer
   if (syncDataCompleter.isCompleted) {
@@ -334,7 +340,7 @@ Future<bool> _syncData(BuildContext context) async {
               ? Icons.sync_problem_outlined
               : Icons.sync_problem_rounded,
           onSubmit: () {
-            Navigator.pop(context);
+            popRoute(context);
           },
           onSubmitLabel: "ok".tr(),
         );
@@ -473,18 +479,7 @@ Future<bool> _syncData(BuildContext context) async {
       print("DELETE LOGS");
       print(deleteLogs);
     } catch (e) {
-      print("SYNC FAILED");
-      print(e.toString());
-      openSnackbar(
-        SnackbarMessage(
-          title: "syncing-failed".tr(),
-          description: "sync-fail-reason".tr(),
-          icon: appStateSettings["outlinedIcons"]
-              ? Icons.sync_problem_outlined
-              : Icons.sync_problem_rounded,
-          timeout: Duration(milliseconds: 5500),
-        ),
-      );
+      print("Syncing error and failed: " + e.toString());
       filesSyncing.remove(file);
       await databaseSync.close();
       loadingProgressKey.currentState?.setProgressPercentage(1);
@@ -493,11 +488,15 @@ Future<bool> _syncData(BuildContext context) async {
         context,
         title: "syncing-failed".tr(),
         description: "sync-fail-reason".tr() + "\n\n" + file.name.toString(),
+        descriptionWidget: Padding(
+          padding: const EdgeInsetsDirectional.only(top: 8, bottom: 12),
+          child: CodeBlock(text: e.toString()),
+        ),
         icon: appStateSettings["outlinedIcons"]
             ? Icons.sync_problem_outlined
             : Icons.sync_problem_rounded,
         onCancel: () {
-          Navigator.pop(context);
+          popRoute(context);
         },
         onCancelLabel: "close".tr(),
         onSubmit: () {

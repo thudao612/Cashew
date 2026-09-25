@@ -1,12 +1,12 @@
 import 'package:budget/colors.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/transactionEntry/swipeToSelectTransactions.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:timer_builder/timer_builder.dart';
@@ -15,7 +15,8 @@ bool enableSwipeDownToRefresh(BuildContext context) {
   return selectingTransactionsActive == 0 &&
       runningCloudFunctions == false &&
       appStateSettings["hasSignedIn"] != false &&
-      appStateSettings["backupSync"] == true;
+      appStateSettings["backupSync"] == true &&
+      googleUser != null;
   // && getIsFullScreen(context) == false;
 }
 
@@ -23,11 +24,13 @@ class PullDownToRefreshSync extends StatefulWidget {
   const PullDownToRefreshSync({
     required this.child,
     required this.scrollController,
+    this.checkEnabled,
     Key? key,
   }) : super(key: key);
 
   final Widget child;
   final ScrollController scrollController;
+  final bool Function()? checkEnabled;
 
   @override
   State<PullDownToRefreshSync> createState() => _PullDownToRefreshSyncState();
@@ -82,7 +85,8 @@ class _PullDownToRefreshSyncState extends State<PullDownToRefreshSync>
   }
 
   _onPointerMove(PointerMoveEvent ptr) {
-    if (enableSwipeDownToRefresh(context)) {
+    if ((widget.checkEnabled == null || widget.checkEnabled!()) &&
+        enableSwipeDownToRefresh(context)) {
       if (swipeDownToRefresh) {
         if (totalDragX > totalDragXToCancel) return;
         totalDragY = totalDragY + ptr.delta.dy * speed;

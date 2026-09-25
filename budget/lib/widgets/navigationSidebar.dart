@@ -1,4 +1,3 @@
-import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/editCategoriesPage.dart';
@@ -8,8 +7,6 @@ import 'package:budget/struct/navBarIconsData.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
-import 'package:budget/widgets/bottomNavBar.dart';
-import 'package:budget/widgets/moreIcons.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/tappable.dart';
@@ -24,14 +21,13 @@ import 'package:timer_builder/timer_builder.dart';
 
 // returns 0 if no navigation sidebar should be shown
 double getWidthNavigationSidebar(BuildContext context) {
-  if (context == null) return 0;
   double screenPercent = 0.3;
   double maxWidthNavigation = 270;
   double minScreenWidth = 700;
 
   if (MediaQuery.sizeOf(context).width < minScreenWidth) return 0;
   if (appStateSettings["expandedNavigationSidebar"] == false) {
-    return 70;
+    return 70 + MediaQuery.viewPaddingOf(context).left;
   }
   return (MediaQuery.sizeOf(context).width * screenPercent > maxWidthNavigation
           ? maxWidthNavigation
@@ -77,6 +73,10 @@ class NavigationSidebarState extends State<NavigationSidebar> {
   int selectedIndex = 0;
   bool isCalendarOpened = false;
 
+  void refreshState() {
+    setState(() {});
+  }
+
   void setSelectedIndex(index) {
     setState(() {
       selectedIndex = index;
@@ -94,7 +94,7 @@ class NavigationSidebarState extends State<NavigationSidebar> {
     // print(selectedIndex);
     return Listener(
       onPointerDown: (_) {
-        if (isCalendarOpened) Navigator.maybePop(navigatorKey.currentContext!);
+        if (isCalendarOpened) maybePopRoute(navigatorKey.currentContext!);
         // Remove any open context menus when sidebar clicked
         ContextMenuController.removeAny();
       },
@@ -106,7 +106,7 @@ class NavigationSidebarState extends State<NavigationSidebar> {
         width: getWidthNavigationSidebar(context),
         child: Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).canvasColor,
+            color: Theme.of(context).colorScheme.background,
             border: BorderDirectional(
               end: BorderSide(
                 color: appStateSettings["materialYou"]
@@ -423,11 +423,6 @@ class NavigationSidebarState extends State<NavigationSidebar> {
                               SizedBox(height: 40),
                               GoogleAccountLoginButton(
                                 navigationSidebarButton: true,
-                                onTap: () {
-                                  pageNavigationFrameworkKey.currentState!
-                                      .changePage(8, switchNavbar: true);
-                                  appStateKey.currentState?.refreshAppState();
-                                },
                                 isButtonSelected: selectedIndex == 8,
                               ),
                               NavigationSidebarButtonWithNavBarIconData(
@@ -468,7 +463,8 @@ class SidebarClock extends StatelessWidget {
         ? Center(
             key: ValueKey(appStateSettings["expandedNavigationSidebar"]),
             child: MediaQuery(
-              data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(1.0)),
               child: TimerBuilder.periodic(
                 Duration(seconds: 5),
                 builder: (context) {
@@ -488,28 +484,41 @@ class SidebarClock extends StatelessWidget {
                               text: (getWordedTime(null, now) + "      ")
                                   .substring(0, 5)
                                   .trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.fade,
+                              softWrap: false,
                             )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                TextFont(
-                                  textColor: getColor(context, "black"),
-                                  fontSize: 45,
-                                  fontWeight: FontWeight.bold,
-                                  // Remove any am/pm indication by substring
-                                  text: getWordedTime(null, now)
-                                      .substring(0, 5)
-                                      .trim(),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsetsDirectional.only(
-                                      bottom: 4.4, start: 7),
+                                Flexible(
                                   child: TextFont(
                                     textColor: getColor(context, "black"),
-                                    fontSize: 25,
+                                    fontSize: 45,
                                     fontWeight: FontWeight.bold,
-                                    text: getMeridiemString(now),
+                                    // Remove any am/pm indication by substring
+                                    text: getWordedTime(null, now)
+                                        .substring(0, 5)
+                                        .trim(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.fade,
+                                    softWrap: false,
+                                  ),
+                                ),
+                                Flexible(
+                                  child: Padding(
+                                    padding: const EdgeInsetsDirectional.only(
+                                        bottom: 4.4, start: 7),
+                                    child: TextFont(
+                                      textColor: getColor(context, "black"),
+                                      fontSize: 25,
+                                      fontWeight: FontWeight.bold,
+                                      text: getMeridiemString(now),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.fade,
+                                      softWrap: false,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -520,6 +529,9 @@ class SidebarClock extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                         text: DateFormat('EEEE', context.locale.toString())
                             .format(now),
+                        maxLines: 1,
+                        overflow: TextOverflow.fade,
+                        softWrap: false,
                       ),
                       SizedBox(height: 5),
                       TextFont(
@@ -527,6 +539,9 @@ class SidebarClock extends StatelessWidget {
                         fontSize: 18,
                         text: DateFormat.yMMMMd(context.locale.toString())
                             .format(now),
+                        maxLines: 1,
+                        overflow: TextOverflow.fade,
+                        softWrap: false,
                       ),
                     ],
                   );
@@ -616,7 +631,7 @@ class _SyncButtonState extends State<SyncButton> {
                                         dateTimeLastSynced ?? DateTime.now())
                                     .inDays;
                                 return TextFont(
-                                  textAlign: TextAlign.left,
+                                  textAlign: TextAlign.start,
                                   textColor: diff > 1
                                       ? Theme.of(context)
                                           .colorScheme
@@ -757,6 +772,14 @@ class NavigationSidebarButton extends StatelessWidget {
             onTap();
           },
           child: AnimatedSizeSwitcher(
+            sizeDuration:
+                appStateSettings["appAnimations"] != AppAnimations.all.index
+                    ? Duration.zero
+                    : Duration(milliseconds: 800),
+            switcherDuration:
+                appStateSettings["appAnimations"] != AppAnimations.all.index
+                    ? Duration.zero
+                    : Duration(milliseconds: 250),
             child: appStateSettings["expandedNavigationSidebar"]
                 ? Padding(
                     key:
@@ -849,6 +872,14 @@ class _EdiDatatButtonsState extends State<EditDataButtons> {
           padding: EdgeInsetsDirectional.only(
               start: appStateSettings["expandedNavigationSidebar"] ? 8 : 0),
           child: AnimatedSizeSwitcher(
+            sizeDuration:
+                appStateSettings["appAnimations"] != AppAnimations.all.index
+                    ? Duration.zero
+                    : Duration(milliseconds: 800),
+            switcherDuration:
+                appStateSettings["appAnimations"] != AppAnimations.all.index
+                    ? Duration.zero
+                    : Duration(milliseconds: 250),
             child: !showEditDataButtons
                 ? Container(key: ValueKey(1))
                 : Column(

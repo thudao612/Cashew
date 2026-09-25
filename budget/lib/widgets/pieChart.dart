@@ -1,9 +1,6 @@
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/struct/databaseGlobal.dart';
-import 'package:budget/struct/defaultPreferences.dart';
-import 'package:budget/struct/settings.dart';
-import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/categoryIcon.dart';
 import 'package:budget/widgets/fadeIn.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
@@ -61,7 +58,6 @@ class PieChartWrapper extends StatelessWidget {
     required this.data,
     required this.totalSpent,
     required this.setSelectedCategory,
-    required this.isPastBudget,
     required this.pieChartDisplayStateKey,
     this.middleColor,
     this.disableLarge = false,
@@ -70,7 +66,6 @@ class PieChartWrapper extends StatelessWidget {
   final double totalSpent;
   final Function(String categoryPk, TransactionCategory? category)
       setSelectedCategory;
-  final bool isPastBudget;
   final GlobalKey<PieChartDisplayState>? pieChartDisplayStateKey;
   final Color? middleColor;
   final bool disableLarge;
@@ -144,7 +139,8 @@ class PieChartWrapper extends StatelessWidget {
                     ? 80
                     : 110,
                 decoration: BoxDecoration(
-                    color: middleColor ?? Theme.of(context).canvasColor,
+                    color:
+                        middleColor ?? Theme.of(context).colorScheme.background,
                     shape: BoxShape.circle),
               ),
             ),
@@ -406,7 +402,7 @@ class _Badge extends StatelessWidget {
                             color: color,
                             width: 1.5,
                           ),
-                          color: Theme.of(context).canvasColor,
+                          color: Theme.of(context).colorScheme.background,
                         ),
                         child: Center(
                           child: MediaQuery(
@@ -428,7 +424,7 @@ class _Badge extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Theme.of(context).canvasColor,
+                  color: Theme.of(context).colorScheme.background,
                 ),
                 child: Center(
                   // child: SimpleShadow(

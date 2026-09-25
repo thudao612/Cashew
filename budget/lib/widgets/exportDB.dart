@@ -1,12 +1,12 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/widgets/exportCSV.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/settingsContainers.dart';
 import 'package:budget/widgets/util/saveFile.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:budget/struct/databaseGlobal.dart';
 
 Future saveDBFileToDevice({
   required BuildContext boxContext,
@@ -38,14 +38,8 @@ Future saveDBFileToDevice({
 
 Future exportDB({required BuildContext boxContext}) async {
   await openLoadingPopupTryCatch(() async {
-    String fileName = "cashew-" +
-        DateTime.now()
-            .toString()
-            .replaceAll(".", "-")
-            .replaceAll("-", "-")
-            .replaceAll(" ", "-")
-            .replaceAll(":", "-") +
-        ".sql";
+    String fileName =
+        "cashew-" + cleanFileNameString(DateTime.now().toString()) + ".sql";
     await saveDBFileToDevice(boxContext: boxContext, fileName: fileName);
   });
 }

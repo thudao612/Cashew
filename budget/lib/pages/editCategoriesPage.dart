@@ -5,13 +5,10 @@ import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addCategoryPage.dart';
-import 'package:budget/pages/addObjectivePage.dart';
-import 'package:budget/pages/editBudgetPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
-import 'package:budget/widgets/animatedExpanded.dart';
-import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/categoryIcon.dart';
+import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/fab.dart';
 import 'package:budget/widgets/fadeIn.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
@@ -21,7 +18,6 @@ import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
-import 'package:budget/widgets/radioItems.dart';
 import 'package:budget/widgets/selectCategory.dart';
 import 'package:budget/widgets/selectChips.dart';
 import 'package:budget/widgets/textInput.dart';
@@ -68,7 +64,7 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
         }
       },
       child: PageFramework(
-        horizontalPadding: getHorizontalPaddingConstrained(context),
+        horizontalPaddingConstrained: true,
         dragDownToDismiss: true,
         dragDownToDismissEnabled: dragDownToDismissEnabled,
         title: "edit-categories".tr(),
@@ -82,20 +78,35 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
           ),
         ),
         actions: [
-          IconButton(
-            padding: EdgeInsetsDirectional.all(15),
-            tooltip: "add-category".tr(),
-            onPressed: () {
-              pushRoute(
-                context,
-                AddCategoryPage(
-                  routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+          CustomPopupMenuButton(
+            showButtons: true,
+            keepOutFirst: true,
+            items: [
+              DropdownItemMenu(
+                id: "add-category",
+                label: "add-category".tr(),
+                icon: appStateSettings["outlinedIcons"]
+                    ? Icons.add_outlined
+                    : Icons.add_rounded,
+                action: () => pushRoute(
+                  context,
+                  AddCategoryPage(
+                    routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+                  ),
                 ),
-              );
-            },
-            icon: Icon(appStateSettings["outlinedIcons"]
-                ? Icons.add_outlined
-                : Icons.add_rounded),
+              ),
+              // DropdownItemMenu(
+              //   id: "settings",
+              //   label: "settings".tr(),
+              //   icon: appStateSettings["outlinedIcons"]
+              //       ? Icons.more_vert_outlined
+              //       : Icons.more_vert_rounded,
+              //   action: () => openBottomSheet(
+              //     context,
+              //     PopupFramework(hasPadding: false, child: CategorySettings()),
+              //   ),
+              // ),
+            ],
           ),
         ],
         slivers: [
@@ -310,7 +321,7 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
                                             fontSize: 19,
                                           ),
                                           TextFont(
-                                            textAlign: TextAlign.left,
+                                            textAlign: TextAlign.start,
                                             text: category.categoryPk == "0"
                                                 ? "balance-correction".tr()
                                                 : category.income
@@ -322,7 +333,7 @@ class _EditCategoriesPageState extends State<EditCategoriesPage> {
                                                     .withOpacity(0.65),
                                           ),
                                           TextFont(
-                                            textAlign: TextAlign.left,
+                                            textAlign: TextAlign.start,
                                             text: categoryDetails
                                                     .numberTransactions
                                                     .toString() +
@@ -551,14 +562,14 @@ Future<DeletePopupAction?> deleteCategoryPopup(
             ? Icons.warning_outlined
             : Icons.warning_rounded,
         onCancel: () {
-          Navigator.pop(context, false);
+          popRoute(context, false);
         },
         onCancelLabel: "cancel".tr(),
         onSubmit: () async {
-          Navigator.pop(context, true);
+          popRoute(context, true);
         },
         onExtra2: () async {
-          Navigator.pop(context, false);
+          popRoute(context, false);
           isSubCategory
               ? mergeSubcategoryPopup(
                   context,
@@ -577,9 +588,9 @@ Future<DeletePopupAction?> deleteCategoryPopup(
     }
     if (result == true) {
       if (routesToPopAfterDelete == RoutesToPopAfterDelete.All) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        popAllRoutes(context);
       } else if (routesToPopAfterDelete == RoutesToPopAfterDelete.One) {
-        Navigator.of(context).pop();
+        popRoute(context);
       }
       openLoadingPopupTryCatch(() async {
         await database.deleteCategory(category.categoryPk, category.order);
@@ -620,19 +631,19 @@ void mergeCategoryPopup(
                   ? Icons.merge_outlined
                   : Icons.merge_rounded,
               onSubmit: () async {
-                Navigator.pop(context, true);
+                popRoute(context, true);
               },
               onSubmitLabel: "merge".tr(),
               onCancelLabel: "cancel".tr(),
               onCancel: () {
-                Navigator.pop(context);
+                popRoute(context);
               },
             );
             if (result == true) {
               if (routesToPopAfterDelete == RoutesToPopAfterDelete.All) {
-                Navigator.of(context).popUntil((route) => route.isFirst);
+                popAllRoutes(context);
               } else if (routesToPopAfterDelete == RoutesToPopAfterDelete.One) {
-                Navigator.of(context).pop();
+                popRoute(context);
               }
               openLoadingPopupTryCatch(() async {
                 await database.mergeAndDeleteCategory(
@@ -680,19 +691,19 @@ void mergeSubcategoryPopup(
                   ? Icons.merge_outlined
                   : Icons.merge_rounded,
               onSubmit: () async {
-                Navigator.pop(context, true);
+                popRoute(context, true);
               },
               onSubmitLabel: "merge".tr(),
               onCancelLabel: "cancel".tr(),
               onCancel: () {
-                Navigator.pop(context);
+                popRoute(context);
               },
             );
             if (result == true) {
               if (routesToPopAfterDelete == RoutesToPopAfterDelete.All) {
-                Navigator.of(context).popUntil((route) => route.isFirst);
+                popAllRoutes(context);
               } else if (routesToPopAfterDelete == RoutesToPopAfterDelete.One) {
-                Navigator.of(context).pop();
+                popRoute(context);
               }
               openLoadingPopupTryCatch(() async {
                 await database.mergeAndDeleteSubCategory(
@@ -729,19 +740,19 @@ void makeMainCategoryPopup(
         ? Icons.move_down_outlined
         : Icons.move_down_rounded,
     onSubmit: () async {
-      Navigator.pop(context, true);
+      popRoute(context, true);
     },
     onSubmitLabel: "make-main-category".tr(),
     onCancelLabel: "cancel".tr(),
     onCancel: () {
-      Navigator.pop(context);
+      popRoute(context);
     },
   );
   if (result == true) {
     if (routesToPopAfterDelete == RoutesToPopAfterDelete.All) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      popAllRoutes(context);
     } else if (routesToPopAfterDelete == RoutesToPopAfterDelete.One) {
-      Navigator.of(context).pop();
+      popRoute(context);
     }
     openLoadingPopupTryCatch(() async {
       await database.makeSubcategoryIntoMainCategory(subcategoryOriginal);
@@ -782,19 +793,19 @@ void makeSubCategoryPopup(
                   ? Icons.move_up_outlined
                   : Icons.move_up_rounded,
               onSubmit: () async {
-                Navigator.pop(context, true);
+                popRoute(context, true);
               },
               onSubmitLabel: "make-subcategory".tr(),
               onCancelLabel: "cancel".tr(),
               onCancel: () {
-                Navigator.pop(context);
+                popRoute(context);
               },
             );
             if (result == true) {
               if (routesToPopAfterDelete == RoutesToPopAfterDelete.All) {
-                Navigator.of(context).popUntil((route) => route.isFirst);
+                popAllRoutes(context);
               } else if (routesToPopAfterDelete == RoutesToPopAfterDelete.One) {
-                Navigator.of(context).pop();
+                popRoute(context);
               }
               openLoadingPopupTryCatch(() async {
                 await database.makeMainCategoryIntoSubcategory(
@@ -815,4 +826,14 @@ void makeSubCategoryPopup(
       ),
     ),
   );
+}
+
+class CategorySettings extends StatelessWidget {
+  const CategorySettings({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    //return CategoryIconPackSelection();
+    return SizedBox.shrink();
+  }
 }

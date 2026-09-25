@@ -1,19 +1,11 @@
-import 'package:animations/animations.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
-import 'package:budget/pages/pastBudgetsPage.dart';
 import 'package:budget/pages/transactionFilters.dart';
-import 'package:budget/pages/transactionsListPage.dart';
-import 'package:budget/pages/transactionsSearchPage.dart';
 import 'package:budget/pages/walletDetailsPage.dart';
-import 'package:budget/struct/defaultPreferences.dart';
 import 'package:budget/struct/listenableSelector.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
-import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/countNumber.dart';
 import 'package:budget/widgets/dateDivider.dart';
-import 'package:budget/widgets/framework/pageFramework.dart';
-import 'package:budget/widgets/iconButtonScaled.dart';
 import 'package:budget/widgets/openContainerNavigation.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/tappable.dart';
@@ -30,12 +22,10 @@ import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/widgets/ghostTransactions.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
-import 'package:googleapis/analyticsreporting/v4.dart';
 import 'package:implicitly_animated_reorderable_list/implicitly_animated_reorderable_list.dart';
 import 'package:implicitly_animated_reorderable_list/transitions.dart';
 import 'package:provider/provider.dart';
 import 'package:sliver_tools/sliver_tools.dart';
-import 'dart:math';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/randomConstants.dart';
 import 'package:sticky_and_expandable_list/sticky_and_expandable_list.dart';
@@ -166,6 +156,7 @@ class _TransactionEntriesState extends State<TransactionEntries> {
       subCategory: item.subCategory,
       budget: item.budget,
       objective: item.objective,
+      objectiveLoan: item.objectiveLoan,
       openPage: AddTransactionPage(
         transaction: item.transaction,
         routesToPopAfterDelete: RoutesToPopAfterDelete.One,
@@ -221,8 +212,10 @@ class _TransactionEntriesState extends State<TransactionEntries> {
           double totalExpense = 0;
           int totalNumberTransactions = data.length;
           Set<String> futureTransactionPks = (data
-              .where((transactionWithCategory) => isAfterCurrentDate(
-                  transactionWithCategory.transaction.dateCreated))
+              .where((transactionWithCategory) => transactionWithCategory
+                  .transaction.dateCreated
+                  .justDay()
+                  .isAfter(DateTime.now().justDay()))
               .map((transactionWithCategory) =>
                   transactionWithCategory.transaction.transactionPk)
               .toSet());
@@ -294,10 +287,8 @@ class _TransactionEntriesState extends State<TransactionEntries> {
             if (widget.pastDaysLimitToShow != null &&
                 totalPastUniqueDays > widget.pastDaysLimitToShow!) break;
 
-            DateTime currentTransactionDate = DateTime(
-                transactionWithCategory.transaction.dateCreated.year,
-                transactionWithCategory.transaction.dateCreated.month,
-                transactionWithCategory.transaction.dateCreated.day);
+            DateTime currentTransactionDate =
+                transactionWithCategory.transaction.dateCreated.justDay();
             if (currentDate == null) {
               currentDate = currentTransactionDate;
               if (currentDate.millisecondsSinceEpoch <
@@ -330,36 +321,26 @@ class _TransactionEntriesState extends State<TransactionEntries> {
               }
             }
 
-            DateTime? nextTransactionDate =
-                totalNumberTransactions == currentTotalIndex + 1
-                    ? null
-                    : DateTime(
-                        (data ?? [])[currentTotalIndex + 1]
-                            .transaction
-                            .dateCreated
-                            .year,
-                        (data ?? [])[currentTotalIndex + 1]
-                            .transaction
-                            .dateCreated
-                            .month,
-                        (data ?? [])[currentTotalIndex + 1]
-                            .transaction
-                            .dateCreated
-                            .day,
-                      );
+            DateTime? nextTransactionDate = totalNumberTransactions ==
+                    currentTotalIndex + 1
+                ? null
+                : data[currentTotalIndex + 1].transaction.dateCreated.justDay();
 
             if (nextTransactionDate == null ||
                 nextTransactionDate != currentTransactionDate) {
               if (transactionListForDay.length > 0) {
-                int daysDifference = DateTime(DateTime.now().year,
-                        DateTime.now().month, DateTime.now().day)
+                int daysDifference = DateTime.now()
+                    .justDay()
                     .difference(currentTransactionDate)
                     .inDays;
 
                 Widget? pastTransactionsDivider =
                     enableFutureTransactionsDivider &&
                             notYetAddedPastTransactionsDivider &&
-                            isAfterCurrentDate(currentTransactionDate) == false
+                            currentTransactionDate
+                                    .justDay()
+                                    .isAfter(DateTime.now().justDay()) ==
+                                false
                         ? PastTransactionsDivider(
                             listID: widget.listID,
                             useHorizontalPaddingConstrained:
@@ -604,6 +585,10 @@ class _TransactionEntriesState extends State<TransactionEntries> {
                 income: totalIncome,
                 expense: totalExpense,
                 onLongPress: widget.onLongPressSpendingSummary,
+                dateTimeRange: widget.startDay != null && widget.endDay != null
+                    ? DateTimeRange(
+                        start: widget.startDay!, end: widget.endDay!)
+                    : null,
               ),
             );
 
@@ -683,7 +668,8 @@ class _TransactionEntriesState extends State<TransactionEntries> {
               for (int i = 0; i < 5 + random.nextInt(5); i++)
                 GhostTransactions(
                   i: random.nextInt(100),
-                  useHorizontalPaddingConstrained: true,
+                  useHorizontalPaddingConstrained:
+                      widget.useHorizontalPaddingConstrained,
                 ),
             ],
           );
@@ -719,20 +705,12 @@ class _TransactionEntriesState extends State<TransactionEntries> {
         end: widget.endDay == null &&
                 widget.searchFilters?.dateTimeRange?.end == null
             ? null
-            : DateTime(
-                widget.endDay?.year ??
-                    widget.searchFilters?.dateTimeRange?.end.year ??
-                    DateTime.now().year,
-                widget.endDay?.month ??
-                    widget.searchFilters?.dateTimeRange?.end.month ??
-                    DateTime.now().month,
-                (widget.endDay?.day ??
-                        widget.searchFilters?.dateTimeRange?.end.day ??
-                        DateTime.now().day) +
-                    (widget.budget == null ? 1 : 0),
+            : (widget.endDay ??
+                    widget.searchFilters?.dateTimeRange?.end ??
+                    DateTime.now())
                 //Add one because want the total from the start of the next day because we get everything BEFORE this date,
                 // Only add one if not a budget! because a different query is used if it is a budget
-              ),
+                .justDay(dayOffset: widget.budget == null ? 1 : 0),
         start: widget.startDay,
         allWallets: Provider.of<AllWallets>(context),
         search: widget.search,
@@ -809,7 +787,7 @@ class PastTransactionsDivider extends StatelessWidget {
                           child: TextFont(
                             text: "past-transactions".tr(),
                             maxLines: 1,
-                            textAlign: TextAlign.left,
+                            textAlign: TextAlign.start,
                             fontSize: 15,
                           ),
                         ),
@@ -870,7 +848,7 @@ class FutureTransactionsDivider extends StatelessWidget {
                               child: TextFont(
                                 text: "future-transactions".tr(),
                                 maxLines: 1,
-                                textAlign: TextAlign.left,
+                                textAlign: TextAlign.start,
                                 fontSize: 15,
                               ),
                             ),
@@ -905,7 +883,7 @@ class FutureTransactionsDivider extends StatelessWidget {
                                                 addCommaWithExtraText: false,
                                               ),
                                               maxLines: 1,
-                                              textAlign: TextAlign.left,
+                                              textAlign: TextAlign.start,
                                               fontSize: 14,
                                               textColor:
                                                   getColor(context, "black"),
@@ -918,7 +896,7 @@ class FutureTransactionsDivider extends StatelessWidget {
                                                 addCommaWithExtraText: false,
                                               ),
                                               maxLines: 1,
-                                              textAlign: TextAlign.left,
+                                              textAlign: TextAlign.start,
                                               fontSize: 14,
                                               textColor: getColor(
                                                   context, "textLight"),
@@ -1002,6 +980,7 @@ class TransactionsEntriesSpendingSummary extends StatelessWidget {
     required this.netSpending,
     required this.income,
     required this.expense,
+    required this.dateTimeRange,
     this.onLongPress,
     super.key,
   });
@@ -1010,6 +989,7 @@ class TransactionsEntriesSpendingSummary extends StatelessWidget {
   final double netSpending;
   final double income;
   final double expense;
+  final DateTimeRange? dateTimeRange;
   final VoidCallback? onLongPress;
 
   @override
@@ -1025,7 +1005,12 @@ class TransactionsEntriesSpendingSummary extends StatelessWidget {
         ),
         child: OpenContainerNavigation(
           borderRadius: borderRadius,
-          openPage: WalletDetailsPage(wallet: null),
+          openPage: WalletDetailsPage(
+            wallet: null,
+            initialSearchFilters: SearchFilters(
+              dateTimeRange: dateTimeRange,
+            ),
+          ),
           button: (openContainer) {
             return Tappable(
               borderRadius: borderRadius,

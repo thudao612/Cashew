@@ -8,6 +8,7 @@ import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/shareBudget.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
+import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/fab.dart';
 import 'package:budget/widgets/fadeIn.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
@@ -97,7 +98,7 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
         }
       },
       child: PageFramework(
-        horizontalPadding: getHorizontalPaddingConstrained(context),
+        horizontalPaddingConstrained: true,
         dragDownToDismiss: true,
         dragDownToDismissEnabled: dragDownToDismissEnabled,
         title: "edit-budgets".tr(),
@@ -111,28 +112,35 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
           ),
         ),
         actions: [
-          appStateSettings["sharedBudgets"] == false
-              ? SizedBox.shrink()
-              : RefreshButton(onTap: () async {
-                  loadingIndeterminateKey.currentState?.setVisibility(true);
-                  await syncPendingQueueOnServer();
-                  await getCloudBudgets();
-                  loadingIndeterminateKey.currentState?.setVisibility(false);
-                }),
-          IconButton(
-            padding: EdgeInsetsDirectional.all(15),
-            tooltip: "add-budget".tr(),
-            onPressed: () {
-              pushRoute(
-                context,
-                AddBudgetPage(
-                  routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+          CustomPopupMenuButton(
+            showButtons: true,
+            keepOutFirst: true,
+            items: [
+              DropdownItemMenu(
+                id: "add-budget",
+                label: "add-budget".tr(),
+                icon: appStateSettings["outlinedIcons"]
+                    ? Icons.add_outlined
+                    : Icons.add_rounded,
+                action: () => pushRoute(
+                  context,
+                  AddBudgetPage(
+                    routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+                  ),
                 ),
-              );
-            },
-            icon: Icon(appStateSettings["outlinedIcons"]
-                ? Icons.add_outlined
-                : Icons.add_rounded),
+              ),
+              DropdownItemMenu(
+                id: "settings",
+                label: "settings".tr(),
+                icon: appStateSettings["outlinedIcons"]
+                    ? Icons.more_vert_outlined
+                    : Icons.more_vert_rounded,
+                action: () => openBottomSheet(
+                  context,
+                  PopupFramework(hasPadding: false, child: BudgetSettings()),
+                ),
+              ),
+            ],
           ),
         ],
         slivers: [
@@ -165,12 +173,12 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
               ),
             ),
           ),
-          SliverToBoxAdapter(
-            child: AnimatedExpanded(
-              expand: hideIfSearching(searchValue, isFocused, context) == false,
-              child: TotalSpentToggle(),
-            ),
-          ),
+          // SliverToBoxAdapter(
+          //   child: AnimatedExpanded(
+          //     expand: hideIfSearching(searchValue, isFocused, context) == false,
+          //     child: BudgetSettings(),
+          //   ),
+          // ),
           StreamBuilder<List<Budget>>(
             stream: database.watchAllBudgets(
                 searchFor: searchValue == "" ? null : searchValue),
@@ -221,8 +229,10 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
                                   ? Icons.visibility_outlined
                                   : Icons.visibility_rounded,
                           onExtra: () async {
-                            Budget updatedBudget =
-                                budget.copyWith(archived: !budget.archived);
+                            Budget updatedBudget = budget.copyWith(
+                              archived: !budget.archived,
+                              pinned: budget.archived,
+                            );
                             await database.createOrUpdateBudget(updatedBudget);
                           },
                           opacity: budget.archived ? 0.5 : 1,
@@ -322,7 +332,7 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
                                         if (snapshot.hasData &&
                                             snapshot.data != null) {
                                           return TextFont(
-                                            textAlign: TextAlign.left,
+                                            textAlign: TextAlign.start,
                                             text: snapshot.data!.toString() +
                                                 " " +
                                                 (snapshot.data! == 1
@@ -339,7 +349,7 @@ class _EditBudgetPageState extends State<EditBudgetPage> {
                                           );
                                         } else {
                                           return TextFont(
-                                            textAlign: TextAlign.left,
+                                            textAlign: TextAlign.start,
                                             text:
                                                 "/" + " " + "transactions".tr(),
                                             fontSize: 14,
@@ -478,11 +488,11 @@ Future<DeletePopupAction?> deleteBudgetPopup(
               ? Icons.warning_outlined
               : Icons.warning_rounded,
           onCancel: () {
-            Navigator.pop(context, false);
+            popRoute(context, false);
           },
           onCancelLabel: "cancel".tr(),
           onSubmit: () async {
-            Navigator.pop(context, true);
+            popRoute(context, true);
           },
           onSubmitLabel: "delete-budget".tr(),
         );
@@ -490,9 +500,9 @@ Future<DeletePopupAction?> deleteBudgetPopup(
     }
     if (result == true) {
       if (routesToPopAfterDelete == RoutesToPopAfterDelete.All) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        popAllRoutes(context);
       } else if (routesToPopAfterDelete == RoutesToPopAfterDelete.One) {
-        Navigator.of(context).pop();
+        popRoute(context);
       }
       openLoadingPopupTryCatch(() async {
         await database.deleteBudget(context, budget);
@@ -520,11 +530,11 @@ Future<dynamic> deleteSharedBudgetPopup(context, Budget budget) {
           ? Icons.delete_outlined
           : Icons.delete_rounded,
       onCancel: () {
-        Navigator.pop(context, false);
+        popRoute(context, false);
       },
       onCancelLabel: "cancel".tr(),
       onSubmit: () async {
-        Navigator.pop(context, true);
+        popRoute(context, true);
       },
       onSubmitLabel: "delete".tr(),
     );
@@ -538,11 +548,11 @@ Future<dynamic> deleteSharedBudgetPopup(context, Budget budget) {
           ? Icons.delete_outlined
           : Icons.delete_rounded,
       onCancel: () {
-        Navigator.pop(context, false);
+        popRoute(context, false);
       },
       onCancelLabel: "cancel".tr(),
       onSubmit: () async {
-        Navigator.pop(context, true);
+        popRoute(context, true);
       },
       onSubmitLabel: "delete".tr(),
     );
@@ -585,9 +595,9 @@ Future<dynamic> selectAddableBudgetPopup(BuildContext context,
               initial: null,
               onChanged: (Budget? budget) async {
                 if (budget == null)
-                  Navigator.of(context).pop("none");
+                  popRoute(context, "none");
                 else
-                  Navigator.of(context).pop(budget);
+                  popRoute(context, budget);
               },
               onLongPress: (Budget? budget) {
                 pushRoute(
@@ -733,7 +743,7 @@ class _TotalSpentToggleState extends State<TotalSpentToggle> {
 
                 // Read the new settings value by setting state
                 setState(() {});
-                Navigator.pop(context);
+                popRoute(context);
               },
             ),
           ),
@@ -744,4 +754,65 @@ class _TotalSpentToggleState extends State<TotalSpentToggle> {
           : Icons.center_focus_weak_rounded,
     );
   }
+}
+
+Future duplicateBudgetPopup(
+  BuildContext context, {
+  required Budget budget,
+}) async {
+  dynamic result = await openPopup(
+    context,
+    title: "duplicate-budget-question".tr(),
+    subtitle: budget.name,
+    onCancelLabel: "cancel".tr(),
+    onCancel: () => Navigator.pop(context),
+    onSubmitLabel: "duplicate".tr(),
+    onSubmit: () => Navigator.pop(context, true),
+  );
+  if (result == true)
+    openLoadingPopupTryCatch(
+      () async {
+        int? rowId = await database.createOrUpdateBudget(
+          budget.copyWith(
+            dateCreated: DateTime.now(),
+            name: budget.name + " (" + "copy".tr() + ")",
+          ),
+          insert: true,
+        );
+
+        Budget? budgetJustAdded = null;
+        budgetJustAdded = await database.getBudgetFromRowId(rowId);
+
+        List<CategoryBudgetLimit> categoryLimits = await database
+            .getAllCategorySpendingLimitsInBudget(budget.budgetPk);
+        for (CategoryBudgetLimit categoryLimit in categoryLimits) {
+          await database.createOrUpdateCategoryLimit(
+            categoryLimit.copyWith(budgetFk: budgetJustAdded.budgetPk),
+            insert: true,
+          );
+        }
+        return budgetJustAdded;
+      },
+      onSuccess: (result) {
+        if (result is Budget) {
+          openSnackbar(
+            SnackbarMessage(
+              icon: appStateSettings["outlinedIcons"]
+                  ? Icons.file_copy_outlined
+                  : Icons.file_copy_rounded,
+              title: "created-copy".tr(),
+              description: result.name,
+            ),
+          );
+          Navigator.pop(context);
+          pushRoute(
+            context,
+            AddBudgetPage(
+              budget: result,
+              routesToPopAfterDelete: RoutesToPopAfterDelete.One,
+            ),
+          );
+        }
+      },
+    );
 }

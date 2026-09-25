@@ -1,10 +1,7 @@
 import 'dart:async';
-import 'dart:math';
-
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/pages/addObjectivePage.dart';
 import 'package:budget/pages/editBudgetPage.dart';
 import 'package:budget/pages/objectivePage.dart';
@@ -14,6 +11,7 @@ import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/categoryIcon.dart';
+import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/fab.dart';
 import 'package:budget/widgets/fadeIn.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
@@ -24,7 +22,6 @@ import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
 import 'package:budget/widgets/radioItems.dart';
-import 'package:budget/widgets/selectCategory.dart';
 import 'package:budget/widgets/textInput.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -33,8 +30,7 @@ import 'package:flutter/services.dart' hide TextInput;
 import 'package:budget/widgets/editRowEntry.dart';
 import 'package:budget/modified/reorderable_list.dart';
 import 'package:provider/provider.dart';
-
-import 'addButton.dart';
+import 'package:budget/pages/addButton.dart';
 
 class EditObjectivesPage extends StatefulWidget {
   EditObjectivesPage({
@@ -75,7 +71,7 @@ class _EditObjectivesPageState extends State<EditObjectivesPage> {
         }
       },
       child: PageFramework(
-        horizontalPadding: getHorizontalPaddingConstrained(context),
+        horizontalPaddingConstrained: true,
         dragDownToDismiss: true,
         dragDownToDismissEnabled: dragDownToDismissEnabled,
         title: widget.objectiveType == ObjectiveType.loan
@@ -94,23 +90,38 @@ class _EditObjectivesPageState extends State<EditObjectivesPage> {
           ),
         ),
         actions: [
-          IconButton(
-            padding: EdgeInsetsDirectional.all(15),
-            tooltip: widget.objectiveType == ObjectiveType.loan
-                ? "add-loan".tr()
-                : "add-goal".tr(),
-            onPressed: () {
-              pushRoute(
-                context,
-                AddObjectivePage(
-                  routesToPopAfterDelete: RoutesToPopAfterDelete.None,
-                  objectiveType: widget.objectiveType,
+          CustomPopupMenuButton(
+            showButtons: true,
+            keepOutFirst: true,
+            items: [
+              DropdownItemMenu(
+                id: "add-loan",
+                label: widget.objectiveType == ObjectiveType.loan
+                    ? "add-loan".tr()
+                    : "add-goal".tr(),
+                icon: appStateSettings["outlinedIcons"]
+                    ? Icons.add_outlined
+                    : Icons.add_rounded,
+                action: () => pushRoute(
+                  context,
+                  AddObjectivePage(
+                    routesToPopAfterDelete: RoutesToPopAfterDelete.None,
+                    objectiveType: widget.objectiveType,
+                  ),
                 ),
-              );
-            },
-            icon: Icon(appStateSettings["outlinedIcons"]
-                ? Icons.add_outlined
-                : Icons.add_rounded),
+              ),
+              DropdownItemMenu(
+                id: "settings",
+                label: "settings".tr(),
+                icon: appStateSettings["outlinedIcons"]
+                    ? Icons.more_vert_outlined
+                    : Icons.more_vert_rounded,
+                action: () => openBottomSheet(
+                  context,
+                  PopupFramework(hasPadding: false, child: ObjectiveSettings()),
+                ),
+              ),
+            ],
           ),
         ],
         slivers: [
@@ -145,12 +156,12 @@ class _EditObjectivesPageState extends State<EditObjectivesPage> {
               ),
             ),
           ),
-          SliverToBoxAdapter(
-            child: AnimatedExpanded(
-              expand: hideIfSearching(searchValue, isFocused, context) == false,
-              child: TotalSpentToggle(isForGoalTotal: true),
-            ),
-          ),
+          // SliverToBoxAdapter(
+          //   child: AnimatedExpanded(
+          //     expand: hideIfSearching(searchValue, isFocused, context) == false,
+          //     child: ObjectiveSettings(),
+          //   ),
+          // ),
           StreamBuilder<List<Objective>>(
             stream: database.watchAllObjectives(
               objectiveType: widget.objectiveType,
@@ -193,8 +204,10 @@ class _EditObjectivesPageState extends State<EditObjectivesPage> {
                               ? Icons.visibility_outlined
                               : Icons.visibility_rounded,
                       onExtra: () async {
-                        Objective updatedObjective =
-                            objective.copyWith(archived: !objective.archived);
+                        Objective updatedObjective = objective.copyWith(
+                          archived: !objective.archived,
+                          pinned: objective.archived,
+                        );
                         await database
                             .createOrUpdateObjective(updatedObjective);
                       },
@@ -238,7 +251,7 @@ class _EditObjectivesPageState extends State<EditObjectivesPage> {
                                   fontSize: 19,
                                 ),
                                 TextFont(
-                                  textAlign: TextAlign.left,
+                                  textAlign: TextAlign.start,
                                   text: getIsDifferenceOnlyLoan(objective)
                                       ? "difference-loan".tr()
                                       : objective.income
@@ -288,7 +301,7 @@ class _EditObjectivesPageState extends State<EditObjectivesPage> {
                                                     : "to-collect".tr())
                                             : "";
                                     return TextFont(
-                                      textAlign: TextAlign.left,
+                                      textAlign: TextAlign.start,
                                       text: getIsDifferenceOnlyLoan(objective)
                                           ? (amountSpentLabel +
                                               " " +
@@ -312,7 +325,7 @@ class _EditObjectivesPageState extends State<EditObjectivesPage> {
                                 //     if (snapshot.hasData &&
                                 //         snapshot.data != null) {
                                 //       return TextFont(
-                                //         textAlign: TextAlign.left,
+                                //         textAlign: TextAlign.start,
                                 //         text: snapshot.data.toString() +
                                 //             " " +
                                 //             (snapshot.data == 1
@@ -329,7 +342,7 @@ class _EditObjectivesPageState extends State<EditObjectivesPage> {
                                 //       );
                                 //     } else {
                                 //       return TextFont(
-                                //         textAlign: TextAlign.left,
+                                //         textAlign: TextAlign.start,
                                 //         text: "/ transactions",
                                 //         fontSize: 14,
                                 //         textColor:
@@ -418,11 +431,11 @@ Future<DeletePopupAction?> deleteObjectivePopup(
             ? Icons.warning_outlined
             : Icons.warning_rounded,
         onCancel: () {
-          Navigator.pop(context, false);
+          popRoute(context, false);
         },
         onCancelLabel: "cancel".tr(),
         onSubmit: () async {
-          Navigator.pop(context, true);
+          popRoute(context, true);
         },
         onSubmitLabel: objective.type == ObjectiveType.loan
             ? "delete-loan".tr()
@@ -431,9 +444,9 @@ Future<DeletePopupAction?> deleteObjectivePopup(
     }
     if (result == true) {
       if (routesToPopAfterDelete == RoutesToPopAfterDelete.All) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        popAllRoutes(context);
       } else if (routesToPopAfterDelete == RoutesToPopAfterDelete.One) {
-        Navigator.of(context).pop();
+        popRoute(context);
       }
       openLoadingPopupTryCatch(() async {
         await database.deleteObjective(context, objective);
@@ -484,6 +497,7 @@ Future<dynamic> selectObjectivePopup(
                       AddObjectivePage(
                         routesToPopAfterDelete: RoutesToPopAfterDelete.One,
                         objective: objective,
+                        objectiveType: objectiveType,
                       ),
                     );
                   },
@@ -523,9 +537,9 @@ Future<dynamic> selectObjectivePopup(
                   initial: selectedObjective,
                   onChanged: (Objective? objective) async {
                     if (objective == null)
-                      Navigator.of(context).pop("none");
+                      popRoute(context, "none");
                     else
-                      Navigator.of(context).pop(objective);
+                      popRoute(context, objective);
                   },
                 );
               } else {

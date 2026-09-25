@@ -19,7 +19,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:budget/main.dart';
 import 'package:provider/provider.dart';
-import '../functions.dart';
+import 'package:budget/functions.dart';
 import 'package:budget/struct/settings.dart';
 
 class ExchangeRates extends StatefulWidget {
@@ -111,7 +111,7 @@ class _ExchangeRatesState extends State<ExchangeRates> {
     }
 
     return PageFramework(
-      horizontalPadding: getHorizontalPaddingConstrained(context),
+      horizontalPaddingConstrained: true,
       dragDownToDismiss: true,
       title: "exchange-rates".tr(),
       actions: [
@@ -129,7 +129,7 @@ class _ExchangeRatesState extends State<ExchangeRates> {
                   ? Icons.info_outlined
                   : Icons.info_outline_rounded,
               onCancel: () {
-                Navigator.pop(context);
+                popRoute(context);
               },
               onCancelLabel: "ok".tr(),
             );
@@ -426,7 +426,7 @@ class _SetCustomCurrencyState extends State<SetCustomCurrency> {
         suffix: " " + widget.currencyKey.allCaps,
         nextLabel: "set-amount".tr(),
         next: () {
-          Navigator.pop(context);
+          popRoute(context);
         },
       ),
     );

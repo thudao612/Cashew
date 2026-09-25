@@ -1,48 +1,20 @@
-import 'dart:convert';
-
-import 'package:budget/colors.dart';
-import 'package:budget/database/binary_string_conversion.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/pages/addTransactionPage.dart';
-import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/syncClient.dart';
-import 'package:budget/widgets/accountAndBackup.dart';
-import 'package:budget/widgets/button.dart';
-import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
-import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/openSnackbar.dart';
-import 'package:budget/widgets/progressBar.dart';
 import 'package:budget/widgets/settingsContainers.dart';
-import 'package:budget/widgets/textInput.dart';
-import 'package:budget/widgets/textWidgets.dart';
-import 'package:drift/drift.dart' hide Column, Table;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'package:csv/csv.dart';
-import 'package:flutter_charset_detector/flutter_charset_detector.dart';
-import 'package:budget/widgets/framework/popupFramework.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:universal_html/html.dart' as html;
-import 'dart:io';
-import 'package:budget/struct/randomConstants.dart';
-import 'package:universal_html/html.dart' show AnchorElement;
-import 'package:path/path.dart' as p;
 
 Future<String?> importDBFileFromDevice(BuildContext context) async {
-  // For some reason, iOS does not let us select SQL files if we limit
-  FilePickerResult? result = getPlatform() == PlatformOS.isIOS
-      ? await FilePicker.platform.pickFiles()
-      : await FilePicker.platform.pickFiles(
-          allowedExtensions: ['sql', 'sqlite'],
-          type: FileType.custom,
-        );
+  // Avoid using a file filter: PlatformException(FilePicker, Unsupported filter....
+  FilePickerResult? result = await FilePicker.platform.pickFiles();
   if (result == null) {
     openSnackbar(SnackbarMessage(
       title: "error-importing".tr(),
@@ -52,6 +24,18 @@ Future<String?> importDBFileFromDevice(BuildContext context) async {
           : Icons.warning_rounded,
     ));
     return null;
+  }
+
+  String fileName = result.files.single.name;
+  if (fileName.endsWith('.sql') == false &&
+      fileName.endsWith('.sqlite') == false) {
+    openSnackbar(SnackbarMessage(
+      title: "import-warning".tr(),
+      description: "import-warning-description".tr(),
+      icon: appStateSettings["outlinedIcons"]
+          ? Icons.warning_outlined
+          : Icons.warning_rounded,
+    ));
   }
 
   await cancelAndPreventSyncOperation();
@@ -81,11 +65,11 @@ Future importDB(BuildContext context, {ignoreOverwriteWarning = false}) async {
           title: "data-overwrite-warning".tr(),
           description: "data-overwrite-warning-description".tr(),
           onCancel: () {
-            Navigator.pop(context, false);
+            popRoute(context, false);
           },
           onCancelLabel: "cancel".tr(),
           onSubmit: () {
-            Navigator.pop(context, true);
+            popRoute(context, true);
           },
           onSubmitLabel: "ok".tr(),
         );
@@ -98,7 +82,7 @@ Future importDB(BuildContext context, {ignoreOverwriteWarning = false}) async {
       title: "select-backup-file".tr(),
       description: "select-backup-file-description".tr(),
       onSubmit: () {
-        Navigator.pop(context);
+        popRoute(context);
       },
       onSubmitLabel: "ok".tr(),
     );

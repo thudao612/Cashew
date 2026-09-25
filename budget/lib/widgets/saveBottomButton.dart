@@ -1,10 +1,8 @@
-import 'package:budget/colors.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/fab.dart';
 import 'package:budget/widgets/fadeIn.dart';
-import 'package:budget/widgets/tappable.dart';
 import 'package:flutter/material.dart';
 
 class SaveBottomButton extends StatelessWidget {
@@ -15,7 +13,6 @@ class SaveBottomButton extends StatelessWidget {
     this.disabled = false,
     this.color,
     this.labelColor,
-    this.margin = EdgeInsetsDirectional.zero,
   });
 
   final String label;
@@ -23,47 +20,61 @@ class SaveBottomButton extends StatelessWidget {
   final bool disabled;
   final Color? color;
   final Color? labelColor;
-  final EdgeInsetsDirectional margin;
 
   @override
   Widget build(BuildContext context) {
     // print(getKeyboardHeight(context));
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Transform.translate(
-          offset: Offset(0, 1),
-          child: Container(
-            height: 12,
-            foregroundDecoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Theme.of(context).canvasColor.withOpacity(0),
-                  Theme.of(context).canvasColor,
-                ],
-                begin: AlignmentDirectional.topCenter,
-                end: AlignmentDirectional.bottomCenter,
-                stops: [0.1, 1],
+    return AddGradientOnTop(
+      child: Button(
+        label: label,
+        disabled: disabled,
+        onTap: onTap,
+        hasBottomExtraSafeArea: true,
+        expandToFillBottomExtraSafeArea: false,
+        color: color,
+        textColor: labelColor,
+      ),
+    );
+  }
+}
+
+class AddGradientOnTop extends StatelessWidget {
+  const AddGradientOnTop({
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // print(getKeyboardHeight(context));
+    return Container(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Transform.translate(
+            offset: Offset(0, 1),
+            child: Container(
+              height: 12,
+              foregroundDecoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.background.withOpacity(0),
+                    Theme.of(context).colorScheme.background,
+                  ],
+                  begin: AlignmentDirectional.topCenter,
+                  end: AlignmentDirectional.bottomCenter,
+                  stops: [0.1, 1],
+                ),
               ),
             ),
           ),
-        ),
-        Tappable(
-          onTap: disabled ? () {} : onTap,
-          child: Padding(
-            padding: margin,
-            child: Button(
-              label: label,
-              disabled: disabled,
-              onTap: onTap,
-              hasBottomExtraSafeArea: true,
-              expandToFillBottomExtraSafeArea: false,
-              color: color,
-              textColor: labelColor,
-            ),
+          Container(
+            color: Theme.of(context).colorScheme.background,
+            child: child,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -170,7 +181,7 @@ class _KeyboardHeightAreaAnimatedState extends State<KeyboardHeightAreaAnimated>
     return AnimatedContainer(
       duration: Duration(milliseconds: 400),
       curve: Curves.easeInOutCubic,
-      color: Theme.of(context).canvasColor,
+      color: Theme.of(context).colorScheme.background,
       height: isKeyboardOpen ? getKeyboardHeight(context) : 0,
       child: Container(color: Colors.red),
     );

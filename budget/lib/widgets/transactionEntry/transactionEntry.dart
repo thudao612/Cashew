@@ -1,14 +1,11 @@
 import 'dart:convert';
-
-import 'package:animations/animations.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
-import 'package:budget/pages/objectivePage.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/listenableSelector.dart';
 import 'package:budget/struct/settings.dart';
+import 'package:budget/struct/upcomingTransactionsFunctions.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/breathingAnimation.dart';
 import 'package:budget/widgets/categoryIcon.dart';
@@ -18,19 +15,19 @@ import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/transactionEntry/transactionEntryTypeButton.dart';
 import 'package:budget/widgets/transactionEntry/transactionLabel.dart';
-import 'package:budget/widgets/util/widgetSize.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:budget/colors.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-
-import 'swipeToSelectTransactions.dart';
-import 'transactionEntryAmount.dart';
-import 'transactionEntryNote.dart';
-import 'transactionEntryTag.dart';
+import 'package:budget/widgets/transactionEntry/swipeToSelectTransactions.dart';
+import 'package:budget/widgets/transactionEntry/transactionEntryAmount.dart';
+import 'package:budget/widgets/transactionEntry/transactionEntryNote.dart';
+import 'package:budget/widgets/transactionEntry/transactionEntryTag.dart';
 
 ValueNotifier<Map<String, List<String>>> globalSelectedID =
     ValueNotifier<Map<String, List<String>>>({});
@@ -101,6 +98,7 @@ class TransactionEntry extends StatelessWidget {
     this.subCategory,
     this.budget,
     this.objective,
+    this.objectiveLoan,
     this.onSelected,
     this.containerColor,
     this.useHorizontalPaddingConstrained = true,
@@ -124,6 +122,7 @@ class TransactionEntry extends StatelessWidget {
   final TransactionCategory? subCategory;
   final Budget? budget;
   final Objective? objective;
+  final Objective? objectiveLoan;
   final Function(Transaction transaction, bool selected)? onSelected;
   final Color? containerColor;
   final bool useHorizontalPaddingConstrained;
@@ -306,18 +305,15 @@ class TransactionEntry extends StatelessWidget {
               selectTransaction: selectTransaction,
             )
           : SizedBox.shrink();
-      Widget categoryIcon = Container(
-        child: CategoryIcon(
-          cacheImage: true,
-          category: category,
-          categoryPk: transaction.categoryFk,
-          size: 27,
-          sizePadding: 20,
-          margin: EdgeInsetsDirectional.zero,
-          borderRadius: 100,
-          onTap: openContainer,
-          tintColor: categoryTintColor,
-        ),
+      Widget categoryIcon = CategoryIcon(
+        cacheImage: true,
+        category: category,
+        categoryPk: transaction.categoryFk,
+        size: 27,
+        sizePadding: 20,
+        margin: EdgeInsetsDirectional.zero,
+        borderRadius: 100,
+        onTap: openContainer,
       );
       Widget actionButton(EdgeInsetsDirectional padding) {
         Widget actionButton = TransactionEntryActionButton(
@@ -340,7 +336,45 @@ class TransactionEntry extends StatelessWidget {
               ? Container(child: actionButton)
               : actionButton,
         );
-        return actionButton;
+        return Stack(
+            clipBehavior: Clip.none,
+            alignment: AlignmentDirectional.bottomStart,
+            children: [
+              actionButton,
+              PositionedDirectional(
+                bottom: -2,
+                start: -2,
+                child: IgnorePointer(
+                  child: Builder(builder: (context) {
+                    int? numberRepeats =
+                        transaction.createdAnotherFutureTransaction == true
+                            ? null
+                            : countTransactionOccurrences(
+                                type: transaction.type,
+                                reoccurrence: transaction.reoccurrence,
+                                periodLength: transaction.periodLength,
+                                dateCreated: transaction.dateCreated,
+                                endDate: transaction.endDate,
+                              );
+                    if (numberRepeats == null) return SizedBox.shrink();
+                    return Container(
+                      transform: Matrix4.translationValues(
+                          (padding.start - padding.end) / 2, 0, 0),
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(100),
+                          color: Theme.of(context).colorScheme.secondary),
+                      padding: EdgeInsetsDirectional.symmetric(
+                          vertical: 2, horizontal: 4),
+                      child: TextFont(
+                        textColor: Theme.of(context).colorScheme.onSecondary,
+                        text: " ×" + numberRepeats.toString() + " ",
+                        fontSize: 10,
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ]);
       }
 
       double fontSize = getIsFullScreen(context) == false ? 15.5 : 16.5;
@@ -364,6 +398,7 @@ class TransactionEntry extends StatelessWidget {
         subCategory: subCategory,
         budget: budget,
         objective: objective,
+        objectiveLoan: objectiveLoan,
         showExcludedBudgetTag: showExcludedBudgetTag,
       );
       Widget noteIcon = TransactionEntryNote(
@@ -621,7 +656,7 @@ class TransactionEntry extends StatelessWidget {
                         ),
                       ),
                       closedColor: containerColor == null
-                          ? Theme.of(context).canvasColor
+                          ? Theme.of(context).colorScheme.background
                           : containerColor,
                       button: (openContainer) {
                         return FlashingContainer(
@@ -751,7 +786,7 @@ class CollapseFutureTransactions extends StatelessWidget {
       builder: (context, _, __) {
         bool isTransactionsCollapsed =
             (globalCollapsedFutureID.value[listID ?? "0"] ?? false) &&
-                isAfterCurrentDate(dateToCompare);
+                dateToCompare.justDay().isAfter(DateTime.now().justDay());
         return AnimatedExpanded(
           duration: const Duration(milliseconds: 425),
           sizeCurve: Curves.fastOutSlowIn,
@@ -762,17 +797,6 @@ class CollapseFutureTransactions extends StatelessWidget {
       },
     );
   }
-}
-
-bool isAfterCurrentDate(DateTime dateToCompare) {
-  return DateTime(dateToCompare.year, dateToCompare.month, dateToCompare.day)
-      .isAfter(
-    DateTime(
-      DateTime.now().year,
-      DateTime.now().month,
-      DateTime.now().day,
-    ),
-  );
 }
 
 void toggleFutureTransactionsSection(String? listID) {

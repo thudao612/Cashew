@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:convert';
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart' hide AppSettings;
@@ -21,7 +20,7 @@ import 'package:budget/widgets/transactionEntry/transactionEntry.dart';
 import 'package:budget/widgets/transactionEntry/transactionLabel.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import '../functions.dart';
+import 'package:budget/functions.dart';
 
 List<MapEntry<String, Transaction>> recentlyDeletedTransactions = [];
 
@@ -85,7 +84,7 @@ void restoreTransaction(
       description: "the-original-category-has-been-deleted".tr(),
       onSubmitLabel: "ok".tr(),
       onSubmit: () async {
-        Navigator.pop(context);
+        popRoute(context);
       },
       icon: appStateSettings["outlinedIcons"]
           ? Icons.search_off_outlined
@@ -98,7 +97,7 @@ void restoreTransaction(
       title: "restore-transaction".tr(),
       subtitle: transactionLabel,
       onCancelLabel: "cancel".tr(),
-      onCancel: () => Navigator.pop(context),
+      onCancel: () => popRoute(context),
       onSubmitLabel: "restore".tr(),
       icon: appStateSettings["outlinedIcons"]
           ? Icons.restore_page_outlined
@@ -128,18 +127,29 @@ void restoreTransaction(
           );
         }
 
-        Navigator.pop(context);
+        popRoute(context);
       },
     );
   }
 }
 
-class ActivityPage extends StatelessWidget {
+class ActivityPage extends StatefulWidget {
   const ActivityPage({super.key});
 
   @override
+  State<ActivityPage> createState() => ActivityPageState();
+}
+
+class ActivityPageState extends State<ActivityPage> {
+  GlobalKey<PageFrameworkState> pageState = GlobalKey();
+  String pageId = "ActivityLog";
+
+  void scrollToTop() {
+    pageState.currentState?.scrollToTop();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    String pageId = "ActivityLog";
     return WillPopScope(
       onWillPop: () async {
         if ((globalSelectedID.value[pageId] ?? []).length > 0) {
@@ -151,6 +161,7 @@ class ActivityPage extends StatelessWidget {
         }
       },
       child: PageFramework(
+        key: pageState,
         dragDownToDismiss: true,
         title: "activity-log".tr(),
         listID: pageId,
@@ -203,6 +214,8 @@ class ActivityPage extends StatelessWidget {
                           Budget? budget = item.transactionWithCategory?.budget;
                           Objective? objective =
                               item.transactionWithCategory?.objective;
+                          Objective? objectiveLoan =
+                              item.transactionWithCategory?.objectiveLoan;
                           Widget noTransactionFound = Padding(
                             padding: EdgeInsetsDirectional.symmetric(
                                 horizontal:
@@ -272,6 +285,7 @@ class ActivityPage extends StatelessWidget {
                                         subCategory: subCategory,
                                         budget: budget,
                                         objective: objective,
+                                        objectiveLoan: objectiveLoan,
                                         listID: pageId,
                                       ),
                                     ),

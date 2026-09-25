@@ -1,39 +1,30 @@
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
-import 'package:budget/pages/addObjectivePage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
-import 'package:budget/pages/editBudgetPage.dart';
 import 'package:budget/pages/homePage/homePageAllSpendingSummary.dart';
 import 'package:budget/pages/homePage/homePageBudgets.dart';
 import 'package:budget/pages/homePage/homePageCreditDebts.dart';
+import 'package:budget/pages/homePage/homePageHeatmap.dart';
 import 'package:budget/pages/homePage/homePageLineGraph.dart';
 import 'package:budget/pages/homePage/homePageNetWorth.dart';
 import 'package:budget/pages/homePage/homePageObjectives.dart';
 import 'package:budget/pages/homePage/homePageUpcomingTransactions.dart';
 import 'package:budget/pages/homePage/homePageWalletSwitcher.dart';
 import 'package:budget/pages/settingsPage.dart';
-import 'package:budget/pages/walletDetailsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/modified/reorderable_list.dart';
 import 'package:budget/struct/navBarIconsData.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/editRowEntry.dart';
-import 'package:budget/widgets/iconButtonScaled.dart';
 import 'package:budget/widgets/listItem.dart';
 import 'package:budget/widgets/moreIcons.dart';
 import 'package:budget/widgets/navigationFramework.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
-import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/outlinedButtonStacked.dart';
-import 'package:budget/widgets/periodCyclePicker.dart';
 import 'package:budget/widgets/radioItems.dart';
-import 'package:budget/widgets/selectAmount.dart';
-import 'package:budget/widgets/selectItems.dart';
-import 'package:budget/pages/addBudgetPage.dart';
 import 'package:budget/widgets/settingsContainers.dart';
-import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/util/showDatePicker.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -44,10 +35,6 @@ import 'package:budget/widgets/framework/pageFramework.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
 import 'package:budget/functions.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:provider/provider.dart';
-import 'package:budget/pages/homepage/homePageUsername.dart';
-
-import '../widgets/tappableTextEntry.dart';
 
 // We need to refresh the home page when this route is popped
 
@@ -365,7 +352,7 @@ class _EditHomePageState extends State<EditHomePage> {
                           updateGlobalState: false,
                         );
                       }
-                      Navigator.of(context).pop();
+                      popRoute(context);
                     },
                   ),
                 ),
@@ -396,6 +383,9 @@ class _EditHomePageState extends State<EditHomePage> {
               switchHomeScreenSection(context, "showHeatMap", value);
             },
             extraWidgetsBelow: [],
+            onTap: () {
+              openHeatMapHomePageBottomSheetSettings(context);
+            },
           ),
           "transactionsList": EditHomePageItem(
             icon: navBarIconsData["transactions"]!.iconData,
@@ -438,21 +428,25 @@ class _EditHomePageState extends State<EditHomePage> {
         return true;
       },
       child: PageFramework(
-        horizontalPadding: getHorizontalPaddingConstrained(context),
+        horizontalPaddingConstrained: true,
         dragDownToDismiss: true,
         dragDownToDismissEnabled: dragDownToDismissEnabled,
         title: "edit-home".tr(),
-        subtitle: Padding(
-          padding: const EdgeInsetsDirectional.only(bottom: 5),
-          child: TextFont(
-            text: "tap-each-section-to-customize".tr(),
-            fontSize: 17,
-            maxLines: 2,
-          ),
-        ),
-        addExtraPaddingAfterCenteredSubtitle: 5,
+        subtitle: appStateSettings["showExtraInfoText"] == false
+            ? null
+            : Padding(
+                padding: const EdgeInsetsDirectional.only(bottom: 5),
+                child: TextFont(
+                  text: "tap-each-section-to-customize".tr(),
+                  fontSize: 17,
+                  maxLines: 2,
+                ),
+              ),
+        addExtraPaddingAfterCenteredSubtitle:
+            appStateSettings["showExtraInfoText"] == false ? null : 5,
         subtitleAlignment: AlignmentDirectional.bottomStart,
-        subtitleSize: 10,
+        subtitleSize:
+            appStateSettings["showExtraInfoText"] == false ? null : 10,
         slivers: [
           if (enableDoubleColumn(context))
             SliverToBoxAdapter(
@@ -631,7 +625,7 @@ class PanelSectionSeparator extends StatelessWidget {
             TextFont(
               text: "left-panel".tr(),
               fontSize: 16,
-              textAlign: TextAlign.left,
+              textAlign: TextAlign.start,
             ),
           Expanded(
               child: HorizontalBreak(
@@ -641,7 +635,7 @@ class PanelSectionSeparator extends StatelessWidget {
             TextFont(
               text: "top-center".tr(),
               fontSize: 16,
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.end,
             ),
           if (orderKey == "ORDER:CENTER")
             Expanded(
@@ -652,7 +646,7 @@ class PanelSectionSeparator extends StatelessWidget {
             TextFont(
               text: "right-panel".tr(),
               fontSize: 16,
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.end,
             ),
         ],
       ),
@@ -727,7 +721,7 @@ class _TransactionsListHomePageBottomSheetSettingsState
                     fontSize: getPlatform() == PlatformOS.isIOS ? 14 : 16,
                     textAlign: getPlatform() == PlatformOS.isIOS
                         ? TextAlign.center
-                        : TextAlign.left,
+                        : TextAlign.start,
                   ),
                 ),
                 SizedBox(height: 15),
@@ -791,7 +785,7 @@ Future openPieChartHomePageBottomSheetSettings(BuildContext context) async {
       //       initial: appStateSettings["pieChartTotal"],
       //       onChanged: (type) async {
       //         updateSettings("pieChartTotal", type, updateGlobalState: false);
-      //         Navigator.of(context).pop();
+      //         popRoute(context, );
       //       },
       //     ),
       //     Padding(
@@ -806,6 +800,13 @@ Future openPieChartHomePageBottomSheetSettings(BuildContext context) async {
       //   ],
       // ),
     ),
+  );
+}
+
+Future openHeatMapHomePageBottomSheetSettings(BuildContext context) async {
+  await openBottomSheet(
+    context,
+    HomePageHeatMapSettings(),
   );
 }
 

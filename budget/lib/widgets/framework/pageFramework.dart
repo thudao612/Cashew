@@ -1,10 +1,8 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
-
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/struct/settings.dart';
-import 'package:budget/struct/shareBudget.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
 import 'package:budget/widgets/navigationSidebar.dart';
@@ -15,9 +13,8 @@ import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/transactionEntry/swipeToSelectTransactions.dart';
 import 'package:flutter/material.dart';
 import 'package:budget/colors.dart';
+import 'package:budget/widgets/pullDownToRefreshSync.dart';
 import 'package:flutter/services.dart';
-
-import '../pullDownToRefreshSync.dart';
 
 ValueNotifier<bool> isSwipingToDismissPageDown = ValueNotifier<bool>(false);
 ValueNotifier<bool> callRefreshToPages = ValueNotifier<bool>(false);
@@ -30,6 +27,7 @@ class PageFramework extends StatefulWidget {
   const PageFramework({
     Key? key,
     this.title = "",
+    this.capitalizeTitle = true,
     this.titleWidget,
     this.slivers = const [],
     this.sliversBefore = true,
@@ -50,12 +48,14 @@ class PageFramework extends StatefulWidget {
     this.textColor,
     this.dragDownToDismiss = false,
     this.dragDownToDismissEnabled = true,
+    this.backSwipeToDismissEnabled = true,
     this.onBackButton,
     this.onDragDownToDismiss,
     this.actions,
     this.expandedHeight,
     this.listID,
-    this.horizontalPadding = 0,
+    this.horizontalPaddingConstrained = false,
+    this.getExtraHorizontalPadding,
     this.backgroundColor,
     this.resizeToAvoidBottomInset = false,
     this.overlay,
@@ -71,9 +71,13 @@ class PageFramework extends StatefulWidget {
     this.bodyBuilder,
     this.scrollController,
     this.selectedTransactionsAppBar,
+    this.backButtonOpacity,
+    this.forceBackgroundColors = false,
+    this.scrollbar = true,
   }) : super(key: key);
 
   final String title;
+  final bool capitalizeTitle;
   final Widget? titleWidget;
   final List<Widget> slivers;
   final bool sliversBefore;
@@ -94,12 +98,14 @@ class PageFramework extends StatefulWidget {
   final Color? textColor;
   final bool dragDownToDismiss;
   final bool dragDownToDismissEnabled;
+  final bool backSwipeToDismissEnabled;
   final VoidCallback? onBackButton;
   final VoidCallback? onDragDownToDismiss;
   final List<Widget>? actions;
   final double? expandedHeight;
   final String? listID;
-  final double horizontalPadding;
+  final bool horizontalPaddingConstrained;
+  final double Function(BuildContext context)? getExtraHorizontalPadding;
   final Color? backgroundColor;
   final bool resizeToAvoidBottomInset;
   final Widget? overlay;
@@ -119,6 +125,9 @@ class PageFramework extends StatefulWidget {
       ScrollPhysics? scrollPhysics, Widget sliverAppBar)? bodyBuilder;
   final ScrollController? scrollController;
   final Widget? selectedTransactionsAppBar;
+  final double? backButtonOpacity;
+  final bool forceBackgroundColors;
+  final bool scrollbar;
 
   @override
   State<PageFramework> createState() => PageFrameworkState();
@@ -126,9 +135,10 @@ class PageFramework extends StatefulWidget {
 
 class PageFrameworkState extends State<PageFramework>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  final double leftBackSwipeDetectionWidth = 50;
+  final double leftBackSwipeDetectionWidth = 30;
 
-  late ScrollController _scrollController;
+  late ScrollController _scrollController =
+      widget.scrollController ?? ScrollController();
   late AnimationController _animationControllerShift =
       AnimationController(vsync: this);
   late AnimationController _animationControllerOpacity;
@@ -141,20 +151,31 @@ class PageFrameworkState extends State<PageFramework>
 
   final double scrollingLimit = 50000;
 
-  double getDistanceToBottom() {
-    final double currentScrollPosition = _scrollController.position.pixels;
-    final double maxScrollExtent = _scrollController.position.maxScrollExtent;
-    final double distanceToEnd = maxScrollExtent - currentScrollPosition;
-    return distanceToEnd;
+  double? getDistanceToBottom() {
+    try {
+      if (_scrollController.hasClients == false) return 0;
+      final double currentScrollPosition = _scrollController.position.pixels;
+      final double maxScrollExtent = _scrollController.position.maxScrollExtent;
+      final double distanceToEnd = maxScrollExtent - currentScrollPosition;
+      return distanceToEnd;
+    } catch (e) {
+      return null;
+    }
   }
 
-  double getDistanceToTop() {
-    final double currentScrollPosition = _scrollController.position.pixels;
-    return currentScrollPosition;
+  double? getDistanceToTop() {
+    try {
+      final double currentScrollPosition = _scrollController.position.pixels;
+      return currentScrollPosition;
+    } catch (e) {
+      return null;
+    }
   }
 
   void scrollToTop({int duration = 1200}) {
-    if (getDistanceToTop() > scrollingLimit || duration == 0) {
+    if (getDistanceToTop() == null ||
+        (getDistanceToTop() ?? 0) > scrollingLimit ||
+        duration == 0) {
       _scrollController.jumpTo(0);
       print("Scrolling via jump, list too long!");
     } else {
@@ -171,7 +192,9 @@ class PageFrameworkState extends State<PageFramework>
   }
 
   void scrollToBottom({int duration = 1200}) {
-    if (getDistanceToBottom() > scrollingLimit || duration == 0) {
+    if (getDistanceToBottom() == null ||
+        (getDistanceToBottom() ?? 0) > scrollingLimit ||
+        duration == 0) {
       _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       print("Scrolling via jump, list too long!");
     } else {
@@ -206,7 +229,6 @@ class PageFrameworkState extends State<PageFramework>
     _animationControllerOpacity = AnimationController(vsync: this, value: 0.5);
     _animationControllerDragY = AnimationController(vsync: this, value: 0);
     _animationControllerDragY.duration = Duration(milliseconds: 1000);
-    _scrollController = widget.scrollController ?? ScrollController();
     _scrollController.addListener(_scrollListener);
 
     WidgetsBinding.instance.addObserver(this);
@@ -245,17 +267,20 @@ class PageFrameworkState extends State<PageFramework>
       if (percent < 0) offset = 0;
 
       if (getExpandedHeaderHeight(context, widget.expandedHeight) - 56 == 0) {
-        _animationControllerOpacity.value = 0.5 +
-            (offset /
-                (getExpandedHeaderHeight(context, widget.expandedHeight)) /
-                2);
+        _animationControllerOpacity.value = widget.backButtonOpacity ??
+            (0.5 +
+                (offset /
+                    (getExpandedHeaderHeight(context, widget.expandedHeight)) /
+                    2));
         _animationControllerShift.value = (offset /
             (getExpandedHeaderHeight(context, widget.expandedHeight)));
       } else {
-        _animationControllerOpacity.value = 0.5 +
-            (offset /
-                (getExpandedHeaderHeight(context, widget.expandedHeight) - 56) /
-                2);
+        _animationControllerOpacity.value = widget.backButtonOpacity ??
+            (0.5 +
+                (offset /
+                    (getExpandedHeaderHeight(context, widget.expandedHeight) -
+                        56) /
+                    2));
         _animationControllerShift.value = (offset /
             (getExpandedHeaderHeight(context, widget.expandedHeight) - 56));
       }
@@ -289,13 +314,21 @@ class PageFrameworkState extends State<PageFramework>
   bool isBackSideSwiping = false;
   double calculatedYOffsetForX = 0;
   double calculatedYOffsetForY = 0;
+  Timer? hapticFeedbackTimer;
 
   _onPointerMove(PointerMoveEvent ptr) {
     if ((widget.onDragDownToDismiss != null ||
             Navigator.of(context).canPop()) &&
-        widget.dragDownToDismissEnabled &&
+        (widget.dragDownToDismissEnabled || widget.backSwipeToDismissEnabled) &&
         selectingTransactionsActive == 0) {
-      if (isBackSideSwiping) {
+      if (isBackSideSwiping && widget.backSwipeToDismissEnabled) {
+        if (appStateSettings["closeNavigationHapticFeedback"] == true &&
+            totalDragX < 90 &&
+            totalDragX + ptr.delta.dx >= 90) {
+          HapticFeedback.selectionClick();
+          hapticFeedbackTimer = Timer(Duration(milliseconds: 200), () {});
+        }
+
         totalDragX = totalDragX + ptr.delta.dx;
         calculatedYOffsetForX = totalDragX / 500;
 
@@ -304,7 +337,14 @@ class PageFrameworkState extends State<PageFramework>
           isSwipingToDismissPageDown.notifyListeners();
         }
       }
-      if (swipeDownToDismiss) {
+      if (swipeDownToDismiss && widget.dragDownToDismissEnabled) {
+        if (appStateSettings["closeNavigationHapticFeedback"] == true &&
+            totalDragY < 125 &&
+            totalDragY + ptr.delta.dy >= 125) {
+          HapticFeedback.selectionClick();
+          hapticFeedbackTimer = Timer(Duration(milliseconds: 200), () {});
+        }
+
         totalDragY = totalDragY + ptr.delta.dy;
         calculatedYOffsetForY = totalDragY / 500;
 
@@ -320,14 +360,18 @@ class PageFrameworkState extends State<PageFramework>
 
   _onPointerUp(PointerUpEvent event) async {
     //How far you need to drag to dismiss
-    if (widget.dragDownToDismissEnabled) {
+    if (widget.dragDownToDismissEnabled || widget.backSwipeToDismissEnabled) {
       if ((totalDragX >= 90 || totalDragY >= 125) &&
           !(ModalRoute.of(context)?.isFirst ?? true)) {
-        // HapticFeedback.lightImpact();
+        if (appStateSettings["closeNavigationHapticFeedback"] == true &&
+            hapticFeedbackTimer?.isActive == false) {
+          HapticFeedback.mediumImpact();
+        }
+
         if (widget.onDragDownToDismiss != null) {
           widget.onDragDownToDismiss!();
         } else {
-          await Navigator.of(context).maybePop();
+          await maybePopRoute(context);
         }
       }
       // This cannot be in an else statement
@@ -368,6 +412,7 @@ class PageFrameworkState extends State<PageFramework>
 
     Widget sliverAppBar = PageFrameworkSliverAppBar(
       title: widget.title,
+      capitalizeTitle: widget.capitalizeTitle,
       titleWidget: widget.titleWidget,
       appBarBackgroundColor: widget.appBarBackgroundColor,
       appBarBackgroundColorStart: widget.appBarBackgroundColorStart,
@@ -389,23 +434,30 @@ class PageFrameworkState extends State<PageFramework>
       centeredTitleSmall: centeredTitleSmall,
       belowAppBarPaddingWhenCenteredTitleSmall:
           widget.belowAppBarPaddingWhenCenteredTitleSmall,
+      forceBackgroundColors: widget.forceBackgroundColors,
     );
+
+    double horizontalPadding = (widget.getExtraHorizontalPadding != null
+            ? widget.getExtraHorizontalPadding!(context)
+            : 0) +
+        (widget.horizontalPaddingConstrained
+            ? getHorizontalPaddingConstrained(context)
+            : 0);
 
     List<Widget> slivers = [
       for (Widget sliver in widget.slivers)
-        widget.horizontalPadding == 0
-            ? sliver
-            : SliverPadding(
-                padding: EdgeInsetsDirectional.symmetric(
-                    horizontal: widget.horizontalPadding),
-                sliver: sliver)
+        SliverPadding(
+          padding:
+              EdgeInsetsDirectional.symmetric(horizontal: horizontalPadding),
+          sliver: sliver,
+        )
     ];
 
     List<Widget> listWidgets = [
       widget.listWidgets != null
           ? SliverPadding(
               padding: EdgeInsetsDirectional.symmetric(
-                  horizontal: widget.horizontalPadding),
+                  horizontal: horizontalPadding),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   ...widget.listWidgets!,
@@ -439,6 +491,7 @@ class PageFrameworkState extends State<PageFramework>
           : Stack(
               children: [
                 ScrollbarWrap(
+                  enabled: widget.scrollbar,
                   child: widget.customScrollViewBuilder != null
                       ? widget.customScrollViewBuilder!(
                           _scrollController,
@@ -487,6 +540,7 @@ class PageFrameworkState extends State<PageFramework>
                 centeredTitle: centeredTitle,
                 centeredTitleSmall: centeredTitleSmall,
                 context: context,
+                forceBackgroundColors: widget.forceBackgroundColors,
               ),
             AnimatedBuilder(
               animation: _animationControllerDragY,
@@ -557,7 +611,8 @@ class PageFrameworkState extends State<PageFramework>
       animation: _scrollToTopAnimationController,
       builder: (_, child) {
         // Don't show scroll to bottom button if list is way too long!
-        if (getDistanceToBottom() > scrollingLimit) {
+        if (getDistanceToBottom() == null ||
+            (getDistanceToBottom() ?? 0) > scrollingLimit) {
           return scrollToTopButton;
         }
         return IgnorePointer(
@@ -718,9 +773,11 @@ class PageFrameworkState extends State<PageFramework>
       valueListenable: callRefreshToPages,
       builder: (context, callRefreshToPagesValue, _) {
         if (callRefreshToPagesValue == true) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {}));
+          WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {
+                callRefreshToPages.value = false;
+              }));
         }
-        return Container(child: child);
+        return child;
       },
     );
 
@@ -728,6 +785,7 @@ class PageFrameworkState extends State<PageFramework>
       return PullDownToRefreshSync(
         child: childListener,
         scrollController: _scrollController,
+        checkEnabled: () => widget.dragDownToDismissEnabled != false,
       );
     } else {
       return childListener;
@@ -739,6 +797,7 @@ class PageFrameworkSliverAppBar extends StatelessWidget {
   const PageFrameworkSliverAppBar({
     Key? key,
     this.title = "",
+    this.capitalizeTitle = true,
     this.titleWidget,
     this.appBarBackgroundColor,
     this.appBarBackgroundColorStart,
@@ -760,9 +819,11 @@ class PageFrameworkSliverAppBar extends StatelessWidget {
     this.centeredTitle,
     this.centeredTitleSmall,
     this.belowAppBarPaddingWhenCenteredTitleSmall,
+    this.forceBackgroundColors = false,
   }) : super(key: key);
 
   final String title;
+  final bool capitalizeTitle;
   final Widget? titleWidget;
   final Color? appBarBackgroundColor;
   final bool backButton;
@@ -785,6 +846,7 @@ class PageFrameworkSliverAppBar extends StatelessWidget {
   final bool? centeredTitle;
   final bool? centeredTitleSmall;
   final double? belowAppBarPaddingWhenCenteredTitleSmall;
+  final bool forceBackgroundColors;
   @override
   Widget build(BuildContext context) {
     bool backButtonEnabled =
@@ -807,10 +869,15 @@ class PageFrameworkSliverAppBar extends StatelessWidget {
               opacity: animationControllerOpacity!,
               child: IconButton(
                 onPressed: () {
+                  if (appStateSettings["closeNavigationHapticFeedback"] ==
+                      true) {
+                    HapticFeedback.mediumImpact();
+                  }
+
                   if (onBackButton != null)
                     onBackButton!();
                   else
-                    Navigator.of(context).maybePop();
+                    maybePopRoute(context);
                 },
                 icon: Icon(
                   getPlatform() == PlatformOS.isIOS
@@ -848,13 +915,14 @@ class PageFrameworkSliverAppBar extends StatelessWidget {
                     MediaQuery.paddingOf(context).top) /
                 (expandedHeightCalculated - collapsedHeight);
         if (collapsedHeight == expandedHeightCalculated) percent = 1;
-        String titleString = title.capitalizeFirst;
+        String titleString = capitalizeTitle ? title.capitalizeFirst : title;
         return FlexibleSpaceBar(
           centerTitle: centeredTitleWithDefault,
           titlePadding:
               EdgeInsetsDirectional.symmetric(vertical: 15, horizontal: 18),
           title: MediaQuery(
-            data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(1.0)),
             child: Transform.translate(
               offset: centeredTitleWithDefault
                   ? Offset(
@@ -887,7 +955,7 @@ class PageFrameworkSliverAppBar extends StatelessWidget {
                             : textColor,
                         textAlign: centeredTitleWithDefault
                             ? TextAlign.center
-                            : TextAlign.left,
+                            : TextAlign.start,
                       ),
                     ),
               ),
@@ -909,6 +977,7 @@ class PageFrameworkSliverAppBar extends StatelessWidget {
                 centeredTitle: centeredTitleWithDefault,
                 centeredTitleSmall: centeredTitleSmallWithDefault,
                 context: context,
+                forceBackgroundColors: forceBackgroundColors,
               ),
               subtitle != null &&
                       centeredTitleSmallWithDefault == false &&
@@ -982,7 +1051,7 @@ Color calculateAppBarBGColor({
       : appBarBackgroundColor;
   if (centeredTitleSmall && getPlatform() == PlatformOS.isIOS) {
     appBarBGColorCalculated =
-        appBarBackgroundColor ?? Theme.of(context).canvasColor;
+        appBarBackgroundColor ?? Theme.of(context).colorScheme.background;
   }
   return appBarBGColorCalculated;
 }
@@ -996,6 +1065,7 @@ List<Widget> getAppBarBackgroundColorLayers({
   // Supply one of (animationControllerOpacity or percent)
   required AnimationController? animationControllerOpacity,
   required double? percent,
+  bool forceBackgroundColors = false,
 }) {
   // animationControllerOpacity does from top:1 to bottom: 0
   // and to make it into a percent: we use (animationControllerOpacity.value - 0.5) / 0.5
@@ -1006,7 +1076,7 @@ List<Widget> getAppBarBackgroundColorLayers({
   );
   return [
     Container(
-      color: appBarBackgroundColor ?? Theme.of(context).canvasColor,
+      color: appBarBackgroundColor ?? Theme.of(context).colorScheme.background,
       // Fixes backdrop not fading correctly when using Impeller (iOS - Flutter v3.13)
       width: MediaQuery.sizeOf(context).width,
       height: MediaQuery.sizeOf(context).height - 1,
@@ -1019,10 +1089,12 @@ List<Widget> getAppBarBackgroundColorLayers({
             height: MediaQuery.sizeOf(context).height - 1,
 
             color: appBarBackgroundColorStart == null
-                ? Theme.of(context).canvasColor
+                ? Theme.of(context).colorScheme.background
                 : appBarBackgroundColorStart,
           ),
-    (animationControllerOpacity != null || percent != null) &&
+    (animationControllerOpacity != null ||
+                percent != null ||
+                forceBackgroundColors) &&
             centeredTitleSmall
         ? Builder(
             builder: (context) {
@@ -1031,37 +1103,43 @@ List<Widget> getAppBarBackgroundColorLayers({
                 width: MediaQuery.sizeOf(context).width,
                 height: MediaQuery.sizeOf(context).height - 1,
 
-                color: appBarBackgroundColor ??
-                    dynamicPastel(
-                      context,
-                      Theme.of(context).colorScheme.secondaryContainer,
-                      amount: appStateSettings["materialYou"] ? 0.4 : 0.55,
-                    ),
+                color: forceBackgroundColors || appBarBackgroundColor == null
+                    ? dynamicPastel(
+                        context,
+                        Theme.of(context).colorScheme.secondaryContainer,
+                        amount: appStateSettings["materialYou"] ? 0.4 : 0.55,
+                      )
+                    : appBarBackgroundColor,
               );
-              return animationControllerOpacity != null
-                  ? AnimatedBuilder(
-                      animation: animationControllerOpacity,
-                      builder: (_, child) {
-                        return Opacity(
-                          opacity: clampDouble(
-                              (animationControllerOpacity.value - 0.5) / 0.5,
-                              0,
-                              1),
-                          child: child,
-                        );
-                      },
-                      child: container,
-                    )
-                  : percent != null
-                      ? Opacity(
-                          opacity: clampDouble(percent, 0, 1),
+              return forceBackgroundColors
+                  ? container
+                  : animationControllerOpacity != null
+                      ? AnimatedBuilder(
+                          animation: animationControllerOpacity,
+                          builder: (_, child) {
+                            return Opacity(
+                              opacity: clampDouble(
+                                  (animationControllerOpacity.value - 0.5) /
+                                      0.5,
+                                  0,
+                                  1),
+                              child: child,
+                            );
+                          },
                           child: container,
                         )
-                      : SizedBox.shrink();
+                      : percent != null
+                          ? Opacity(
+                              opacity: clampDouble(percent, 0, 1),
+                              child: container,
+                            )
+                          : SizedBox.shrink();
             },
           )
         : SizedBox.shrink(),
-    (animationControllerOpacity != null || percent != null) &&
+    (animationControllerOpacity != null ||
+                percent != null ||
+                forceBackgroundColors) &&
             centeredTitleSmall == false
         ? Builder(
             builder: (context) {
@@ -1072,28 +1150,35 @@ List<Widget> getAppBarBackgroundColorLayers({
 
                 color: appBarBGColorCalculated,
               );
-              return animationControllerOpacity != null
-                  ? AnimatedBuilder(
-                      animation: animationControllerOpacity,
-                      builder: (_, child) {
-                        return Opacity(
-                          opacity:
-                              (animationControllerOpacity.value - 0.5) / 0.5,
-                          child: child,
-                        );
-                      },
-                      child: container,
-                    )
-                  : percent != null
-                      ? Opacity(
-                          opacity: clampDouble(percent, 0, 1),
+              return forceBackgroundColors
+                  ? container
+                  : animationControllerOpacity != null
+                      ? AnimatedBuilder(
+                          animation: animationControllerOpacity,
+                          builder: (_, child) {
+                            return Opacity(
+                              opacity: clampDouble(
+                                (animationControllerOpacity.value - 0.5) / 0.5,
+                                0,
+                                1,
+                              ),
+                              child: child,
+                            );
+                          },
                           child: container,
                         )
-                      : SizedBox.shrink();
+                      : percent != null
+                          ? Opacity(
+                              opacity: clampDouble(percent, 0, 1),
+                              child: container,
+                            )
+                          : SizedBox.shrink();
             },
           )
         : SizedBox.shrink(),
-    (animationControllerOpacity != null || percent != null) &&
+    (animationControllerOpacity != null ||
+                percent != null ||
+                forceBackgroundColors) &&
             centeredTitleSmall &&
             getPlatform() == PlatformOS.isIOS
         ? Builder(
@@ -1104,37 +1189,40 @@ List<Widget> getAppBarBackgroundColorLayers({
                   height: 1.2,
                   color: dynamicPastel(
                     context,
-                    appBarBackgroundColor != null
-                        ? appBarBackgroundColor
-                        : dynamicPastel(context,
+                    forceBackgroundColors || appBarBackgroundColor == null
+                        ? dynamicPastel(context,
                             Theme.of(context).colorScheme.secondaryContainer,
                             amount:
-                                appStateSettings["materialYou"] ? 0.4 : 0.55),
+                                appStateSettings["materialYou"] ? 0.4 : 0.55)
+                        : appBarBackgroundColor,
                     inverse: true,
                     amount: 0.05,
                   ),
                 ),
               );
-              return animationControllerOpacity != null
-                  ? AnimatedBuilder(
-                      animation: animationControllerOpacity,
-                      builder: (_, child) {
-                        return Opacity(
-                          opacity: clampDouble(
-                              (animationControllerOpacity.value - 0.5) / 0.5,
-                              0,
-                              1),
-                          child: child,
-                        );
-                      },
-                      child: container,
-                    )
-                  : percent != null
-                      ? Opacity(
-                          opacity: clampDouble(percent, 0, 1),
+              return forceBackgroundColors
+                  ? container
+                  : animationControllerOpacity != null
+                      ? AnimatedBuilder(
+                          animation: animationControllerOpacity,
+                          builder: (_, child) {
+                            return Opacity(
+                              opacity: clampDouble(
+                                  (animationControllerOpacity.value - 0.5) /
+                                      0.5,
+                                  0,
+                                  1),
+                              child: child,
+                            );
+                          },
                           child: container,
                         )
-                      : SizedBox.shrink();
+                      : percent != null
+                          ? Opacity(
+                              opacity: clampDouble(percent, 0, 1),
+                              child: container,
+                            )
+                          : SizedBox.shrink();
             },
           )
         : SizedBox.shrink(),

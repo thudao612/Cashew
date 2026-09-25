@@ -1,9 +1,7 @@
 import 'dart:async';
-
 import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/defaultPreferences.dart';
 import 'package:budget/struct/languageMap.dart';
@@ -11,7 +9,6 @@ import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/breathingAnimation.dart';
 import 'package:budget/widgets/button.dart';
-import 'package:budget/widgets/fadeIn.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
 import 'package:budget/widgets/moreIcons.dart';
 import 'package:budget/widgets/navigationFramework.dart';
@@ -115,8 +112,8 @@ class PremiumPage extends StatelessWidget {
                                       SubscriptionFeature(
                                         iconData:
                                             appStateSettings["outlinedIcons"]
-                                                ? Icons.thumb_up_outlined
-                                                : Icons.thumb_up_rounded,
+                                                ? Icons.favorite_outlined
+                                                : Icons.favorite_rounded,
                                         label: "support-the-developer".tr(),
                                         description:
                                             "support-the-developer-description"
@@ -231,7 +228,7 @@ class PremiumPage extends StatelessWidget {
                               Colors.black.withOpacity(canDismiss ? 0.9 : 0.16),
                         ),
                         onPressed: () {
-                          Navigator.pop(context);
+                          popRoute(context);
                         },
                       ),
                     ),
@@ -355,7 +352,7 @@ class _FreePremiumMessageState extends State<FreePremiumMessage> {
         TextFont(
             maxLines: 80,
             fontSize: 15.5,
-            textAlign: TextAlign.left,
+            textAlign: TextAlign.start,
             text: "developer-message-1".tr() +
                 (appStateSettings["premiumPopupFreeSeen"]
                     ? "."
@@ -364,7 +361,7 @@ class _FreePremiumMessageState extends State<FreePremiumMessage> {
         TextFont(
             maxLines: 80,
             fontSize: 15.5,
-            textAlign: TextAlign.left,
+            textAlign: TextAlign.start,
             text: "developer-message-2".tr()),
         SizedBox(height: 15),
         Row(
@@ -379,7 +376,7 @@ class _FreePremiumMessageState extends State<FreePremiumMessage> {
                     updateSettings("premiumPopupFreeSeen", true,
                         updateGlobalState: false);
                   }
-                  Navigator.pop(context, false); //Pop current popup route
+                  popRoute(context, false); //Pop current popup route
                 },
               ),
             ),
@@ -397,8 +394,8 @@ class _FreePremiumMessageState extends State<FreePremiumMessage> {
                           : ""),
                   onTap: () {
                     if (timerUp) {
-                      Navigator.pop(context, true); //Pop current popup route
-                      Navigator.pop(context, true); //Pop premium page route
+                      popRoute(context, true); //Pop current popup route
+                      popRoute(context, true); //Pop premium page route
                       updateSettings("premiumPopupFreeSeen", true,
                           updateGlobalState: false);
                     }
@@ -417,8 +414,8 @@ class _FreePremiumMessageState extends State<FreePremiumMessage> {
               expandedLayout: true,
               label: "no-free-stuff".tr(),
               onTap: () {
-                Navigator.pop(context); //Pop current route
-                Navigator.pop(context, false); //Pop premium page route
+                popRoute(context); //Pop current route
+                popRoute(context, false); //Pop premium page route
               },
               color: Theme.of(context).colorScheme.tertiaryContainer,
               textColor: Theme.of(context).colorScheme.onTertiaryContainer,
@@ -449,22 +446,32 @@ class CashewProBanner extends StatelessWidget {
           textColor: fontColor ?? Colors.black,
         ),
         SizedBox(width: 2),
-        Container(
-          margin: EdgeInsetsDirectional.symmetric(horizontal: 5),
-          padding: EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 5),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadiusDirectional.circular(100),
-            boxShadow: boxShadowGeneral(context),
-          ),
-          child: TextFont(
-            text: "Pro",
-            textColor: Theme.of(context).colorScheme.onPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: large ? 21 : 15,
-          ),
-        ),
+        TextPill(fontSize: large ? 21 : 15, text: "Pro"),
       ],
+    );
+  }
+}
+
+class TextPill extends StatelessWidget {
+  const TextPill({required this.text, required this.fontSize, super.key});
+  final String text;
+  final double fontSize;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsetsDirectional.symmetric(horizontal: 5),
+      padding: EdgeInsetsDirectional.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary,
+        borderRadius: BorderRadiusDirectional.circular(100),
+        boxShadow: boxShadowGeneral(context),
+      ),
+      child: TextFont(
+        text: text,
+        textColor: Theme.of(context).colorScheme.onPrimary,
+        fontWeight: FontWeight.bold,
+        fontSize: fontSize,
+      ),
     );
   }
 }
@@ -579,9 +586,8 @@ void listenToPurchaseUpdated({
         updateSettings("purchaseID", purchaseDetails.productID,
             updateGlobalState: false, pagesNeedingRefresh: [3]);
         print("Purchased " + purchaseDetails.productID);
-        if (popRouteWithPurchase == true &&
-            navigatorKey.currentContext != null) {
-          Navigator.pop(navigatorKey.currentContext!, true);
+        if (popRouteWithPurchase == true) {
+          popRoute(null, true);
         }
       }
 
@@ -675,9 +681,37 @@ Future restorePurchases(BuildContext context) async {
     await InAppPurchase.instance.restorePurchases();
     SnackBar snackBar = SnackBar(
       content: Text('any-previous-purchases-restored'.tr()),
+      action: getPlatform(ignoreEmulation: true) == PlatformOS.isAndroid
+          ? SnackBarAction(
+              label: "help".tr().capitalizeFirst,
+              onPressed: () {
+                showHelpRestorePopup(context);
+              })
+          : null,
     );
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
+}
+
+showHelpRestorePopup(BuildContext context) {
+  openPopup(
+    context,
+    icon: appStateSettings["outlinedIcons"]
+        ? Icons.shop_2_outlined
+        : Icons.shop_2_rounded,
+    title: "restore-purchases".tr(),
+    description: "restore-purchases-help".tr(),
+    onCancel: () => popRoute(context),
+    onCancelLabel: "close".tr(),
+    onSubmitLabel: "contact".tr(),
+    onSubmit: () async {
+      bool openResult = await openUrl('mailto:dapperappdeveloper@gmail.com');
+      if (openResult == false) copyToClipboard("dapperappdeveloper@gmail.com");
+    },
+    onExtra: () =>
+        openUrl("https://cashewapp.web.app/faq.html#restoring-purchases"),
+    onExtraLabel: "FAQ".tr(),
+  );
 }
 
 bool hidePremiumPopup() {
@@ -707,7 +741,7 @@ Future<bool> premiumPopupBudgets(BuildContext context) async {
     if (await premiumPopupPushRoute(context) == true) {
       return true;
     } else {
-      Navigator.pop(context);
+      popRoute(context);
       return false;
     }
   } else {
@@ -723,7 +757,7 @@ Future<bool> premiumPopupObjectives(BuildContext context,
     if (await premiumPopupPushRoute(context) == true) {
       return true;
     } else {
-      Navigator.pop(context);
+      popRoute(context);
       return false;
     }
   } else {
@@ -736,7 +770,7 @@ Future<bool> premiumPopupPastBudgets(BuildContext context) async {
   if (await premiumPopupPushRoute(context) == true) {
     return true;
   } else {
-    Navigator.pop(context);
+    popRoute(context);
     return false;
   }
 }
@@ -1185,14 +1219,17 @@ class LockedFeature extends StatelessWidget {
 }
 
 class FadeOutAndLockFeature extends StatefulWidget {
-  const FadeOutAndLockFeature(
-      {required this.child,
-      this.actionAfter,
-      this.hasInitiallyDismissed = false,
-      super.key});
+  const FadeOutAndLockFeature({
+    required this.child,
+    this.actionAfter,
+    this.hasInitiallyDismissed = false,
+    this.fadeOutQuick = false,
+    super.key,
+  });
   final Widget child;
   final VoidCallback? actionAfter;
   final bool hasInitiallyDismissed;
+  final bool fadeOutQuick;
 
   @override
   State<FadeOutAndLockFeature> createState() => _FadeOutAndLockFeatureState();
@@ -1240,7 +1277,9 @@ class _FadeOutAndLockFeatureState extends State<FadeOutAndLockFeature> {
           IgnorePointer(
             child: AnimatedOpacity(
               opacity: fadeIn ? 0.23 : 1,
-              duration: Duration(milliseconds: 5000),
+              duration: widget.fadeOutQuick
+                  ? Duration(milliseconds: 0)
+                  : Duration(milliseconds: 5000),
               child: AnimatedOpacity(
                 opacity: fadeIn ? 0.25 : 1,
                 duration: Duration(milliseconds: 500),
@@ -1363,6 +1402,7 @@ class PremiumBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) return SizedBox.shrink();
     double borderRadius = 15;
     bool purchased = appStateSettings["purchaseID"] != null;
 

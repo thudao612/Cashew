@@ -1,11 +1,7 @@
-import 'package:budget/colors.dart';
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/main.dart';
-import 'package:budget/pages/addBudgetPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/pages/editBudgetPage.dart';
-import 'package:budget/pages/editCategoriesPage.dart';
 import 'package:budget/pages/editObjectivesPage.dart';
 import 'package:budget/pages/editWalletsPage.dart';
 import 'package:budget/struct/currencyFunctions.dart';
@@ -13,7 +9,6 @@ import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/listenableSelector.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/button.dart';
-import 'package:budget/widgets/categoryIcon.dart';
 import 'package:budget/widgets/dropdownSelect.dart';
 import 'package:budget/widgets/globalSnackbar.dart';
 import 'package:budget/widgets/moreIcons.dart';
@@ -22,14 +17,11 @@ import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/widgets/outlinedButtonStacked.dart';
-import 'package:budget/widgets/selectAmount.dart';
-import 'package:budget/widgets/selectCategory.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
 import 'package:budget/widgets/transactionEntry/transactionEntry.dart';
 import 'package:budget/widgets/transactionEntry/transactionLabel.dart';
 import 'package:budget/widgets/util/showDatePicker.dart';
-import 'package:budget/widgets/util/showTimePicker.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -37,9 +29,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:budget/widgets/countNumber.dart';
 import 'package:budget/widgets/framework/popupFramework.dart';
-import 'package:share_plus/share_plus.dart';
-import 'tappableTextEntry.dart';
-import 'tappableTextEntry.dart';
 
 class SelectedTransactionsAppBar extends StatelessWidget {
   const SelectedTransactionsAppBar(
@@ -77,11 +66,7 @@ class SelectedTransactionsAppBar extends StatelessWidget {
         customSnackbarDescription: "transaction-details".tr(),
       );
     } else {
-      final box = context.findRenderObject() as RenderBox?;
-      await Share.share(
-        outString,
-        sharePositionOrigin: box!.localToGlobal(Offset.zero) & box.size,
-      );
+      shareToClipboard(outString, context: context);
     }
   }
 
@@ -184,7 +169,7 @@ class SelectedTransactionsAppBar extends StatelessWidget {
                                                       " " +
                                                       "selected".tr(),
                                               fontSize: 17.5,
-                                              textAlign: TextAlign.left,
+                                              textAlign: TextAlign.start,
                                               maxLines: 1,
                                               overflow: TextOverflow.fade,
                                               softWrap: false,
@@ -231,7 +216,7 @@ class SelectedTransactionsAppBar extends StatelessWidget {
                                                     ? snapshot.data!
                                                     : 0),
                                             fontSize: 17.5,
-                                            textAlign: TextAlign.left,
+                                            textAlign: TextAlign.start,
                                             maxLines: 1,
                                           ),
                                         ),
@@ -284,7 +269,11 @@ class SelectedTransactionsAppBarMenu extends StatelessWidget {
         useCurrentDate: duplicateForNow,
       );
     } else {
-      duplicateMultipleTransactions(context, selectedTransactionPks);
+      duplicateMultipleTransactions(
+        context,
+        selectedTransactionPks,
+        useCurrentDate: duplicateForNow,
+      );
     }
     if (showDetailedSnackbarMessage == false) {
       if (duplicateForNow) {
@@ -521,7 +510,7 @@ class SelectedTransactionsAppBarMenu extends StatelessWidget {
                                               unfocusWhenRecommendedTapped:
                                                   false,
                                               onSubmitted: (_) {
-                                                Navigator.pop(context, true);
+                                                popRoute(context, true);
                                               },
                                               autoFocus: true,
                                             ),
@@ -534,7 +523,7 @@ class SelectedTransactionsAppBarMenu extends StatelessWidget {
                                       Button(
                                         label: "set-title".tr(),
                                         onTap: () {
-                                          Navigator.pop(context, true);
+                                          popRoute(context, true);
                                         },
                                       ),
                                     ],
@@ -906,7 +895,7 @@ class EditSelectedTransactionsContainer extends StatelessWidget {
               iconData: iconData,
               iconScale: iconScale,
               onTap: () {
-                Navigator.pop(context);
+                popRoute(context);
                 onTap();
               },
             ),
@@ -947,6 +936,7 @@ Future duplicateTransaction(
   // Since the transaction list is sorted by date created
   transaction = transaction.copyWith(
     dateCreated: transaction.dateCreated.add(Duration(seconds: 1)),
+    pairedTransactionFk: Value(null),
   );
   int? rowId = await database.createOrUpdateTransaction(
     transaction,
@@ -972,10 +962,9 @@ Future duplicateTransaction(
           title: "created-copy-for-current-time".tr(),
           description: "copied".tr() + " " + transactionName,
           onTap: () {
-            if (navigatorKey.currentContext != null &&
-                transactionJustAdded != null)
+            if (transactionJustAdded != null)
               pushRoute(
-                navigatorKey.currentContext!,
+                null,
                 AddTransactionPage(
                   routesToPopAfterDelete: RoutesToPopAfterDelete.One,
                   transaction: transactionJustAdded,
@@ -993,10 +982,9 @@ Future duplicateTransaction(
           title: "created-copy".tr(),
           description: "copied".tr() + " " + transactionName,
           onTap: () {
-            if (navigatorKey.currentContext != null &&
-                transactionJustAdded != null)
+            if (transactionJustAdded != null)
               pushRoute(
-                navigatorKey.currentContext!,
+                null,
                 AddTransactionPage(
                   routesToPopAfterDelete: RoutesToPopAfterDelete.One,
                   transaction: transactionJustAdded,
@@ -1017,6 +1005,7 @@ Future duplicateMultipleTransactions(
 }) async {
   List<Transaction> transactions =
       await database.getTransactionsFromPk(transactionPks);
+
   if (useCurrentDate) {
     transactions = transactions
         .map((transaction) => transaction.copyWith(dateCreated: DateTime.now()))
@@ -1038,10 +1027,65 @@ Future duplicateMultipleTransactions(
           ))
       .toList();
 
-  List<TransactionsCompanion> transactionsCompanion = transactions
-      .map((transaction) =>
-          transaction.toCompanion(true).copyWith(transactionPk: Value.absent()))
-      .toList();
+  // Handle duplicating of paired transfer entries
+  // Find matching pairs and pre-generate a key for the pair
+  Map<String, String> relatedMatchingPairs = findMatchingPairsPks(transactions);
+  Map<String, String> generatedMatchingPairKeys =
+      relatedMatchingPairs.map((key, value) => MapEntry(key, uuid.v4()));
+
+  List<TransactionsCompanion> transactionsCompanion =
+      transactions.map((transaction) {
+    // Handle duplicating of paired transfer entries
+    if (transaction.categoryFk == "0" &&
+        transaction.pairedTransactionFk != null &&
+        relatedMatchingPairs[transaction.pairedTransactionFk] != null) {
+      // print("usingPaired: " +
+      //     (generatedMatchingPairKeys[transaction.pairedTransactionFk] ?? ""));
+      return transaction.toCompanion(true).copyWith(
+            transactionPk: Value.absent(),
+            pairedTransactionFk: Value(
+                generatedMatchingPairKeys[transaction.pairedTransactionFk]),
+          );
+    } else if (transaction.categoryFk == "0" &&
+        transaction.pairedTransactionFk == null &&
+        relatedMatchingPairs[transaction.transactionPk] != null) {
+      // print("usingNew: " +
+      //     (generatedMatchingPairKeys[transaction.transactionPk] ?? ""));
+      return transaction.toCompanion(true).copyWith(
+            transactionPk: Value(
+                generatedMatchingPairKeys[transaction.transactionPk] ?? ""),
+            pairedTransactionFk: Value.absent(),
+          );
+    }
+
+    return transaction.toCompanion(true).copyWith(
+          transactionPk: Value.absent(),
+        );
+  }).toList();
 
   await database.createBatchTransactionsOnly(transactionsCompanion);
+}
+
+// Create a map of the key pairs for paired transfer transactions
+Map<String, String> findMatchingPairsPks(List<Transaction> transactions) {
+  Map<String, String> pairs = {};
+
+  final Map<String, Transaction> transactionMap = {
+    for (Transaction transaction in transactions)
+      transaction.transactionPk: transaction
+  };
+
+  for (Transaction transaction in transactions) {
+    if (transaction.categoryFk == "0" &&
+        transaction.pairedTransactionFk != null &&
+        transactionMap.containsKey(transaction.pairedTransactionFk!)) {
+      Transaction pairedTransaction =
+          transactionMap[transaction.pairedTransactionFk!]!;
+
+      pairs[transaction.transactionPk] = pairedTransaction.transactionPk;
+      pairs[pairedTransaction.transactionPk] = transaction.transactionPk;
+    }
+  }
+
+  return pairs;
 }

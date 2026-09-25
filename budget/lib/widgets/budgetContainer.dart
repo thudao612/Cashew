@@ -22,11 +22,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sa3_liquid/sa3_liquid.dart';
-import '../colors.dart';
-import '../functions.dart';
+import 'package:budget/colors.dart';
+import 'package:budget/functions.dart';
 import 'package:async/async.dart' show StreamZip;
 import 'package:budget/struct/randomConstants.dart';
-import 'dart:ui' as ui;
 
 class BudgetContainer extends StatelessWidget {
   BudgetContainer({
@@ -34,8 +33,6 @@ class BudgetContainer extends StatelessWidget {
     required this.budget,
     this.height = 183,
     this.dateForRange,
-    this.isPastBudget = false,
-    this.isPastBudgetButCurrentPeriod = false,
     this.longPressToEdit = true,
     this.intermediatePadding = true,
     this.squishInactiveBudgetContainerHeight = false,
@@ -44,8 +41,6 @@ class BudgetContainer extends StatelessWidget {
   final Budget budget;
   final double height;
   final DateTime? dateForRange;
-  final bool? isPastBudget;
-  final bool? isPastBudgetButCurrentPeriod;
   final bool longPressToEdit;
   final bool intermediatePadding;
   final bool squishInactiveBudgetContainerHeight;
@@ -113,7 +108,7 @@ class BudgetContainer extends StatelessWidget {
                                     text: budget.name,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 24,
-                                    textAlign: TextAlign.left,
+                                    textAlign: TextAlign.start,
                                   ),
                                 ),
                               ],
@@ -143,7 +138,7 @@ class BudgetContainer extends StatelessWidget {
                                                     : budgetAmount - totalSpent,
                                               ),
                                               fontSize: 18,
-                                              textAlign: TextAlign.left,
+                                              textAlign: TextAlign.start,
                                               fontWeight: FontWeight.bold,
                                             );
                                           },
@@ -163,7 +158,7 @@ class BudgetContainer extends StatelessWidget {
                                                           context),
                                                       budgetAmount),
                                               fontSize: 13,
-                                              textAlign: TextAlign.left,
+                                              textAlign: TextAlign.start,
                                             ),
                                           ),
                                         ),
@@ -194,7 +189,7 @@ class BudgetContainer extends StatelessWidget {
                                                       : totalSpent -
                                                           budgetAmount),
                                               fontSize: 18,
-                                              textAlign: TextAlign.left,
+                                              textAlign: TextAlign.start,
                                               fontWeight: FontWeight.bold,
                                             );
                                           },
@@ -213,7 +208,7 @@ class BudgetContainer extends StatelessWidget {
                                                         context),
                                                     budgetAmount),
                                             fontSize: 13,
-                                            textAlign: TextAlign.left,
+                                            textAlign: TextAlign.start,
                                           ),
                                         ),
                                       ),
@@ -402,8 +397,6 @@ class BudgetContainer extends StatelessWidget {
         openPage: BudgetPage(
           budgetPk: budget.budgetPk,
           dateForRange: dateForRangeLocal,
-          isPastBudget: isPastBudget,
-          isPastBudgetButCurrentPeriod: isPastBudgetButCurrentPeriod,
         ),
       ),
     );
@@ -438,13 +431,9 @@ class DaySpending extends StatelessWidget {
           ? SizedBox(height: 1)
           : Builder(builder: (context) {
               // Add one because if there are zero days left, we want to make it the last day
-              int remainingDays = budgetRange.end
-                      .difference(
-                        DateTime(DateTime.now().year, DateTime.now().month,
-                            DateTime.now().day, 0, 0),
-                      )
-                      .inDays +
-                  1;
+              int remainingDays =
+                  budgetRange.end.difference(DateTime.now().justDay()).inDays +
+                      1;
               return TextFont(
                 textColor: getColor(context, "black").withAlpha(80),
                 text: isOutOfRange

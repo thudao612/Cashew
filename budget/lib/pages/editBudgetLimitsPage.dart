@@ -1,5 +1,6 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
+import 'package:budget/pages/addTransactionPage.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/settings.dart';
@@ -32,7 +33,6 @@ class _EditBudgetLimitsPageState extends State<EditBudgetLimitsPage> {
     Future.delayed(Duration(milliseconds: 0), () async {
       await database.fixWanderingCategoryLimitsInBudget(
         allWallets: Provider.of<AllWallets>(context, listen: false),
-        budgetPk: widget.budget.budgetPk,
       );
     });
     super.initState();
@@ -86,6 +86,7 @@ class _EditBudgetLimitsPageState extends State<EditBudgetLimitsPage> {
             ),
           ),
         ),
+        SliverToBoxAdapter(child: HorizontalBreak()),
         CategoryLimits(
           isIncomeBudget: widget.budget.income,
           isAbsoluteSpendingLimit: selectedIsAbsoluteSpendingLimit,

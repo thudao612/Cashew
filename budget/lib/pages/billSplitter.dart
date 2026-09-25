@@ -2,12 +2,8 @@ import 'dart:convert';
 
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
-import 'package:budget/pages/accountsPage.dart';
 import 'package:budget/pages/addBudgetPage.dart';
-import 'package:budget/pages/addCategoryPage.dart';
 import 'package:budget/pages/addTransactionPage.dart';
-import 'package:budget/pages/editBudgetPage.dart';
-import 'package:budget/pages/objectivesListPage.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/widgets/animatedExpanded.dart';
 import 'package:budget/widgets/button.dart';
@@ -24,7 +20,6 @@ import 'package:budget/widgets/openSnackbar.dart';
 import 'package:budget/widgets/radioItems.dart';
 import 'package:budget/widgets/saveBottomButton.dart';
 import 'package:budget/widgets/selectAmount.dart';
-import 'package:budget/widgets/selectCategory.dart';
 import 'package:budget/widgets/settingsContainers.dart';
 import 'package:budget/widgets/sliverStickyLabelDivider.dart';
 import 'package:budget/widgets/textInput.dart';
@@ -38,7 +33,7 @@ import 'package:provider/provider.dart';
 import 'package:budget/widgets/countNumber.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 
-import '../widgets/tappableTextEntry.dart';
+import 'package:budget/widgets/tappableTextEntry.dart';
 import 'addButton.dart';
 
 class BillSplitterItem {
@@ -237,7 +232,7 @@ class _BillSplitterState extends State<BillSplitter> {
                   ? Icons.info_outlined
                   : Icons.info_outline_rounded,
               onCancel: () {
-                Navigator.pop(context);
+                popRoute(context);
               },
               onCancelLabel: "ok".tr(),
             );
@@ -249,7 +244,7 @@ class _BillSplitterState extends State<BillSplitter> {
           ),
         ),
       ],
-      horizontalPadding: getHorizontalPaddingConstrained(context),
+      horizontalPaddingConstrained: true,
       floatingActionButton: AnimateFABDelayed(
         fab: AddFAB(
           enableLongPress: false,
@@ -912,7 +907,7 @@ class _AddBillItemPageState extends State<AddBillItemPage> {
             });
           },
           next: () async {
-            Navigator.pop(context);
+            popRoute(context);
           },
           nextLabel: "set-amount".tr(),
           allowZero: true,
@@ -935,249 +930,242 @@ class _AddBillItemPageState extends State<AddBillItemPage> {
         }
         return true;
       },
-      child: GestureDetector(
-        onTap: () {
-          minimizeKeyboard(context);
-        },
-        child: PageFramework(
-          title: widget.billSplitterItem == null
-              ? "add-item".tr()
-              : "edit-item".tr(),
-          dragDownToDismiss: true,
-          horizontalPadding: getHorizontalPaddingConstrained(context) + 13,
-          listWidgets: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: IntrinsicWidth(
-                    child: TextInput(
-                      controller: _titleInputController,
-                      labelText: "item-name-placeholder".tr(),
-                      bubbly: false,
-                      onChanged: (text) {
-                        billSplitterItem.name = text;
-                      },
-                      textAlign: TextAlign.center,
-                      padding: EdgeInsetsDirectional.only(start: 7, end: 7),
-                      fontSize: getIsFullScreen(context) ? 26 : 25,
-                      fontWeight: FontWeight.bold,
-                      topContentPadding: kIsWeb ? 6.8 : 0,
-                    ),
+      child: PageFramework(
+        title: widget.billSplitterItem == null
+            ? "add-item".tr()
+            : "edit-item".tr(),
+        dragDownToDismiss: true,
+        horizontalPaddingConstrained: true,
+        getExtraHorizontalPadding: (_) => 13,
+        listWidgets: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: IntrinsicWidth(
+                  child: TextInput(
+                    controller: _titleInputController,
+                    labelText: "item-name-placeholder".tr(),
+                    bubbly: false,
+                    onChanged: (text) {
+                      billSplitterItem.name = text;
+                    },
+                    textAlign: TextAlign.center,
+                    padding: EdgeInsetsDirectional.only(start: 7, end: 7),
+                    fontSize: getIsFullScreen(context) ? 26 : 25,
+                    fontWeight: FontWeight.bold,
+                    topContentPadding: kIsWeb ? 6.8 : 0,
                   ),
                 ),
-              ],
-            ),
-            SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.only(bottom: 7.5),
-                    child: TappableTextEntry(
-                      title: convertToMoney(
-                        Provider.of<AllWallets>(context),
-                        billSplitterItem.cost,
-                      ),
-                      placeholder: convertToPercent(0),
-                      showPlaceHolderWhenTextEquals: convertToPercent(0),
-                      onTap: () {
-                        openEnterAmountBottomSheet();
-                      },
-                      fontSize: 27,
-                      padding: EdgeInsetsDirectional.zero,
-                    ),
-                  ),
-                ),
-                TextFont(text: "×"),
-                Padding(
+              ),
+            ],
+          ),
+          SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Padding(
                   padding: const EdgeInsetsDirectional.only(bottom: 7.5),
                   child: TappableTextEntry(
-                    title: multiplierAmount
-                        .toStringAsFixed(2)
-                        .replaceAll(".", getDecimalSeparator()),
-                    placeholder: "1",
-                    showPlaceHolderWhenTextEquals: "1.00",
+                    title: convertToMoney(
+                      Provider.of<AllWallets>(context),
+                      billSplitterItem.cost,
+                    ),
+                    placeholder: convertToPercent(0),
+                    showPlaceHolderWhenTextEquals: convertToPercent(0),
                     onTap: () {
-                      openBottomSheet(
-                        context,
-                        fullSnap: true,
-                        PopupFramework(
-                          title: "enter-amount".tr(),
-                          subtitle: "bill-splitter-multiplier-description".tr(),
-                          child: SelectAmount(
-                            allowZero: true,
-                            allDecimals: true,
-                            convertToMoney: false,
-                            amountPassed: multiplierAmount.toString(),
-                            setSelectedAmount: (amount, __) {
-                              if (amount == 0) {
-                                widget.setMultiplierAmount(1);
-                                setState(() {
-                                  multiplierAmount = 1;
-                                });
-                              } else {
-                                widget.setMultiplierAmount(amount);
-                                setState(() {
-                                  multiplierAmount = amount;
-                                });
-                              }
-                            },
-                            next: () {
-                              print(multiplierAmount);
-                              Navigator.pop(context);
-                            },
-                            nextLabel: "set-amount".tr(),
-                            currencyKey: null,
-                            onlyShowCurrencyIcon: false,
-                            enableWalletPicker: false,
-                          ),
-                        ),
-                      );
+                      openEnterAmountBottomSheet();
                     },
                     fontSize: 27,
                     padding: EdgeInsetsDirectional.zero,
                   ),
                 ),
-              ],
-            ),
-            SizedBox(height: 15),
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: getPlatform() == PlatformOS.isIOS
-                    ? BorderRadiusDirectional.circular(10)
-                    : BorderRadiusDirectional.circular(20),
-                color: Theme.of(context).colorScheme.secondaryContainer,
               ),
-              child: SettingsContainerSwitch(
-                title: "split-evenly".tr(),
-                onSwitched: (value) {
-                  setState(() {
-                    billSplitterItem.evenSplit = value;
-                  });
-                },
-                enableBorderRadius: true,
-                initialValue: billSplitterItem.evenSplit,
-              ),
-            ),
-            SizedBox(height: 10),
-            CheckItems(
-              minVerticalPadding: 0,
-              initial: billSplitterItem.userAmounts
-                  .map((item) => item.name)
-                  .toList(),
-              items: [
-                ...splitPersons
-                    .map((SplitPerson splitPerson) => splitPerson.name)
-                    .toList(),
-                ...billSplitterItem.userAmounts
-                    .map((item) => item.name)
-                    .toList(),
-              ].toSet().toList(),
-              onChanged: (currentValues) {
-                selectedSplitPersons = [];
-                for (String name in currentValues) {
-                  selectedSplitPersons.add(
-                    SplitPerson(
-                      name,
-                      percent: getPerson(splitPersons, name)?.percent,
-                    ),
-                  );
-                }
-              },
-              buildSuffix:
-                  (currentValues, item, selected, addEntry, removeEntry) {
-                double percent = selected == true && billSplitterItem.evenSplit
-                    ? 1 / currentValues.length * 100
-                    : selected == false && billSplitterItem.evenSplit
-                        ? 0
-                        : (getPerson(splitPersons, item)?.percent ?? 0);
-                return TappableTextEntry(
-                  enableAnimatedSwitcher: false,
-                  title: convertToPercent(percent),
-                  placeholder: convertToPercent(0),
-                  showPlaceHolderWhenTextEquals: convertToPercent(0),
-                  disabled: billSplitterItem.evenSplit,
-                  customTitleBuilder: (titleBuilder) {
-                    return CountNumber(
-                      count: percent,
-                      textBuilder: (amount) {
-                        return titleBuilder(convertToPercent(amount));
-                      },
-                      duration: Duration(milliseconds: 400),
-                    );
-                  },
+              TextFont(text: "×"),
+              Padding(
+                padding: const EdgeInsetsDirectional.only(bottom: 7.5),
+                child: TappableTextEntry(
+                  title: multiplierAmount
+                      .toStringAsFixed(2)
+                      .replaceAll(".", getDecimalSeparator()),
+                  placeholder: "1",
+                  showPlaceHolderWhenTextEquals: "1.00",
                   onTap: () {
                     openBottomSheet(
                       context,
+                      fullSnap: true,
                       PopupFramework(
                         title: "enter-amount".tr(),
-                        child: SelectAmountValue(
-                          amountPassed:
-                              removeTrailingZeroes(percent.toString()),
-                          setSelectedAmount: (amount, _) {
-                            for (int i = 0; i < splitPersons.length; i++) {
-                              if (splitPersons[i].name == item) {
-                                setState(() {
-                                  splitPersons[i].percent = amount;
-                                });
-                                break;
-                              }
-                            }
-                            if (amount != 0) {
-                              addEntry(item);
+                        subtitle: "bill-splitter-multiplier-description".tr(),
+                        child: SelectAmount(
+                          allowZero: true,
+                          allDecimals: true,
+                          convertToMoney: false,
+                          amountPassed: multiplierAmount.toString(),
+                          setSelectedAmount: (amount, __) {
+                            if (amount == 0) {
+                              widget.setMultiplierAmount(1);
+                              setState(() {
+                                multiplierAmount = 1;
+                              });
                             } else {
-                              removeEntry(item);
+                              widget.setMultiplierAmount(amount);
+                              setState(() {
+                                multiplierAmount = amount;
+                              });
                             }
                           },
-                          next: () async {
-                            Navigator.pop(context);
+                          next: () {
+                            print(multiplierAmount);
+                            popRoute(context);
                           },
                           nextLabel: "set-amount".tr(),
-                          allowZero: true,
-                          suffix: "%",
+                          currencyKey: null,
+                          onlyShowCurrencyIcon: false,
+                          enableWalletPicker: false,
                         ),
                       ),
                     );
                   },
-                  fontSize: 22,
+                  fontSize: 27,
                   padding: EdgeInsetsDirectional.zero,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 15),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: getPlatform() == PlatformOS.isIOS
+                  ? BorderRadiusDirectional.circular(10)
+                  : BorderRadiusDirectional.circular(20),
+              color: Theme.of(context).colorScheme.secondaryContainer,
+            ),
+            child: SettingsContainerSwitch(
+              title: "split-evenly".tr(),
+              onSwitched: (value) {
+                setState(() {
+                  billSplitterItem.evenSplit = value;
+                });
+              },
+              enableBorderRadius: true,
+              initialValue: billSplitterItem.evenSplit,
+            ),
+          ),
+          SizedBox(height: 10),
+          CheckItems(
+            minVerticalPadding: 0,
+            initial:
+                billSplitterItem.userAmounts.map((item) => item.name).toList(),
+            items: [
+              ...splitPersons
+                  .map((SplitPerson splitPerson) => splitPerson.name)
+                  .toList(),
+              ...billSplitterItem.userAmounts.map((item) => item.name).toList(),
+            ].toSet().toList(),
+            onChanged: (currentValues) {
+              selectedSplitPersons = [];
+              for (String name in currentValues) {
+                selectedSplitPersons.add(
+                  SplitPerson(
+                    name,
+                    percent: getPerson(splitPersons, name)?.percent,
+                  ),
                 );
-              },
-            ),
-            SizedBox(height: 10),
-            AddButton(
-              onTap: () {
-                openAddPersonPopup(
-                  context: context,
-                  setState: setState,
-                  addPerson: widget.addPerson,
-                );
-              },
-            ),
-          ],
-          staticOverlay: Align(
-            alignment: AlignmentDirectional.bottomCenter,
-            child: SaveBottomButton(
-              label: widget.billSplitterItem == null
-                  ? "add-item".tr()
-                  : "update-item".tr(),
-              onTap: () {
-                // for (SplitPerson splitPerson in selectedSplitPersons) {
-                //   print(splitPerson.name);
-                //   print(splitPerson.percent);
-                // }
-                billSplitterItem.userAmounts = [...selectedSplitPersons];
-                if (widget.billSplitterItem == null) {
-                  widget.addBillSplitterItem(billSplitterItem);
-                } else {
-                  widget.updateBillSplitterItem(
-                      billSplitterItem, widget.billSplitterItemIndex);
-                }
-                Navigator.pop(context);
-              },
-            ),
+              }
+            },
+            buildSuffix:
+                (currentValues, item, selected, addEntry, removeEntry) {
+              double percent = selected == true && billSplitterItem.evenSplit
+                  ? 1 / currentValues.length * 100
+                  : selected == false && billSplitterItem.evenSplit
+                      ? 0
+                      : (getPerson(splitPersons, item)?.percent ?? 0);
+              return TappableTextEntry(
+                enableAnimatedSwitcher: false,
+                title: convertToPercent(percent),
+                placeholder: convertToPercent(0),
+                showPlaceHolderWhenTextEquals: convertToPercent(0),
+                disabled: billSplitterItem.evenSplit,
+                customTitleBuilder: (titleBuilder) {
+                  return CountNumber(
+                    count: percent,
+                    textBuilder: (amount) {
+                      return titleBuilder(convertToPercent(amount));
+                    },
+                    duration: Duration(milliseconds: 400),
+                  );
+                },
+                onTap: () {
+                  openBottomSheet(
+                    context,
+                    PopupFramework(
+                      title: "enter-amount".tr(),
+                      child: SelectAmountValue(
+                        amountPassed: removeTrailingZeroes(percent.toString()),
+                        setSelectedAmount: (amount, _) {
+                          for (int i = 0; i < splitPersons.length; i++) {
+                            if (splitPersons[i].name == item) {
+                              setState(() {
+                                splitPersons[i].percent = amount;
+                              });
+                              break;
+                            }
+                          }
+                          if (amount != 0) {
+                            addEntry(item);
+                          } else {
+                            removeEntry(item);
+                          }
+                        },
+                        next: () async {
+                          popRoute(context);
+                        },
+                        nextLabel: "set-amount".tr(),
+                        allowZero: true,
+                        suffix: "%",
+                      ),
+                    ),
+                  );
+                },
+                fontSize: 22,
+                padding: EdgeInsetsDirectional.zero,
+              );
+            },
+          ),
+          SizedBox(height: 10),
+          AddButton(
+            onTap: () {
+              openAddPersonPopup(
+                context: context,
+                setState: setState,
+                addPerson: widget.addPerson,
+              );
+            },
+          ),
+          SizedBox(height: 50),
+        ],
+        staticOverlay: Align(
+          alignment: AlignmentDirectional.bottomCenter,
+          child: SaveBottomButton(
+            label: widget.billSplitterItem == null
+                ? "add-item".tr()
+                : "update-item".tr(),
+            onTap: () {
+              // for (SplitPerson splitPerson in selectedSplitPersons) {
+              //   print(splitPerson.name);
+              //   print(splitPerson.percent);
+              // }
+              billSplitterItem.userAmounts = [...selectedSplitPersons];
+              if (widget.billSplitterItem == null) {
+                widget.addBillSplitterItem(billSplitterItem);
+              } else {
+                widget.updateBillSplitterItem(
+                    billSplitterItem, widget.billSplitterItemIndex);
+              }
+              popRoute(context);
+            },
           ),
         ),
       ),
@@ -1216,7 +1204,7 @@ void openAddPersonPopup({
           bool result = addPerson(SplitPerson(text));
           if (result == true) {
             setState(() {});
-            Navigator.pop(context);
+            popRoute(context);
           }
         },
       ),
@@ -1245,7 +1233,7 @@ class _PeoplePageState extends State<PeoplePage> {
     return PageFramework(
       title: "names".tr(),
       dragDownToDismiss: true,
-      horizontalPadding: getHorizontalPaddingConstrained(context),
+      horizontalPaddingConstrained: true,
       listWidgets: [
         widget.splitPersons.length <= 0
             ? NoResults(
@@ -1402,7 +1390,7 @@ class SummaryPage extends StatelessWidget {
           ),
         ),
       ],
-      horizontalPadding: getHorizontalPaddingConstrained(context),
+      horizontalPaddingConstrained: true,
     );
   }
 }
@@ -1425,7 +1413,7 @@ Future<bool> generateLoanTransactionsFromBillSummary(
         ],
         initial: null,
         onChanged: (value) async {
-          Navigator.pop(context, value);
+          popRoute(context, value);
         },
       ),
     ),
@@ -1470,7 +1458,7 @@ Future<bool> generateLoanTransactionsFromBillSummary(
                     showCategoryIconForRecommendedTitles: false,
                     unfocusWhenRecommendedTapped: false,
                     onSubmitted: (value) {
-                      Navigator.pop(context, true);
+                      popRoute(context, true);
                     },
                     autoFocus: true,
                   ),
@@ -1483,7 +1471,7 @@ Future<bool> generateLoanTransactionsFromBillSummary(
             Button(
               label: "set-title".tr(),
               onTap: () {
-                Navigator.pop(context, true);
+                popRoute(context, true);
               },
             ),
           ],

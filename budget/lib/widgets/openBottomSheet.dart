@@ -15,43 +15,53 @@ bool getIsFullScreen(context) {
 }
 
 double getWidthBottomSheet(context) {
-  double maxWidth = 900;
+  double maxWidth = 650;
   return MediaQuery.sizeOf(context).width - getWidthNavigationSidebar(context) >
           maxWidth
-      ? maxWidth - getWidthNavigationSidebar(context)
+      ? maxWidth
       : MediaQuery.sizeOf(context).width - getWidthNavigationSidebar(context);
 }
 
-double getHorizontalPaddingConstrained(context, {bool enabled = true}) {
+double getHorizontalPaddingConstrained(BuildContext context,
+    {bool enabled = true, double? customWidthToCalculateOn}) {
   if (enabled == false) return 0;
-  if (MediaQuery.sizeOf(context).width >= 550 &&
-      MediaQuery.sizeOf(context).width <= 1000 &&
+  double fullWidth =
+      customWidthToCalculateOn ?? MediaQuery.sizeOf(context).width;
+  if (fullWidth >= 550 &&
+      fullWidth <= 1000 &&
       getIsFullScreen(context) == false) {
     double returnedPadding = 0;
-    returnedPadding = MediaQuery.sizeOf(context).width / 3 - 140;
+    returnedPadding = fullWidth / 3 - 140;
     return returnedPadding < 0 ? 0 : returnedPadding;
-  } else if (MediaQuery.sizeOf(context).width <= 1000 &&
+  } else if (fullWidth <= 1000 &&
       getIsFullScreen(context) &&
       appStateSettings["expandedNavigationSidebar"] == true) {
     double returnedPadding = 0;
-    returnedPadding = MediaQuery.sizeOf(context).width / 5 - 125;
+    returnedPadding = fullWidth / 5 - 125;
     return returnedPadding < 0 ? 0 : returnedPadding;
   }
   // When the navigation bar is closed
-  else if (MediaQuery.sizeOf(context).width <= 1000 &&
+  else if (fullWidth <= 1000 &&
       getIsFullScreen(context) &&
       appStateSettings["expandedNavigationSidebar"] == false) {
     double returnedPadding = 0;
-    returnedPadding = MediaQuery.sizeOf(context).width / 3.5 - 125;
+    returnedPadding = fullWidth / 3.5 - 125;
     return returnedPadding < 0 ? 0 : returnedPadding;
   } else if (getIsFullScreen(context) &&
       appStateSettings["expandedNavigationSidebar"] == false) {
     double returnedPadding = 0;
-    returnedPadding = (MediaQuery.sizeOf(context).width - 500) / 3;
+    returnedPadding = (fullWidth - 500) / 3;
     return returnedPadding < 0 ? 0 : returnedPadding;
   }
 
-  return (MediaQuery.sizeOf(context).width - getWidthBottomSheet(context)) / 3;
+  return (fullWidth - getWidthBottomSheet(context)) / 3;
+}
+
+Color getPopupBackgroundColor(BuildContext context) {
+  return appStateSettings["materialYou"]
+      ? dynamicPastel(context, Theme.of(context).colorScheme.secondaryContainer,
+          amountDark: 0.3, amountLight: 0.6)
+      : getColor(context, "lightDarkAccent");
 }
 
 SheetController? bottomSheetControllerGlobalCustomAssigned;
@@ -100,6 +110,7 @@ Future openBottomSheet(
 
   return await showSlidingBottomSheet(
     context,
+    useRootNavigator: false,
     resizeToAvoidBottomInset: resizeForKeyboard,
     // getOSInsideWeb() == "iOS" ? false : resizeForKeyboard,
     builder: (context) {
@@ -107,11 +118,8 @@ Future openBottomSheet(
 
       double deviceAspectRatio =
           MediaQuery.sizeOf(context).height / MediaQuery.sizeOf(context).width;
-      Color bottomPaddingColor = appStateSettings["materialYou"]
-          ? dynamicPastel(themeContext ?? context,
-              Theme.of(themeContext ?? context).colorScheme.secondaryContainer,
-              amountDark: 0.3, amountLight: 0.6)
-          : getColor(themeContext ?? context, "lightDarkAccent");
+      Color bottomPaddingColor =
+          getPopupBackgroundColor(themeContext ?? context);
 
       return SlidingSheetDialog(
         isDismissable: isDismissable,
@@ -230,7 +238,8 @@ bool checkIfDefaultThemeData(BuildContext? context) {
         Theme.of(context).primaryColor == ThemeData().primaryColor &&
         Theme.of(context).secondaryHeaderColor ==
             ThemeData().secondaryHeaderColor &&
-        Theme.of(context).canvasColor == ThemeData().canvasColor &&
+        Theme.of(context).colorScheme.background ==
+            ThemeData().colorScheme.background &&
         Theme.of(context).cardColor == ThemeData().cardColor;
   } catch (e) {
     return true;
@@ -254,7 +263,7 @@ bool checkIfDefaultThemeData(BuildContext? context) {
 //         padding: EdgeInsetsDirectional.only(top: MediaQuery.paddingOf(context).top),
 //         child: GestureDetector(
 //           onTap: () {
-//             Navigator.pop(context);
+//             popRoute(context);
 //           },
 //           child: Align(
 //             alignment: AlignmentDirectional.bottomCenter,

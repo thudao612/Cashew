@@ -25,9 +25,8 @@ import 'package:budget/widgets/transactionEntry/transactionEntry.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../functions.dart';
+import 'package:budget/functions.dart';
 import 'package:budget/struct/settings.dart';
-import 'package:budget/widgets/countNumber.dart';
 
 class SubscriptionsPage extends StatefulWidget {
   const SubscriptionsPage({Key? key}) : super(key: key);
@@ -53,10 +52,12 @@ class SubscriptionsPageState extends State<SubscriptionsPage> {
 
   @override
   Widget build(BuildContext context) {
+    String pageId = "Subscriptions";
+
     return WillPopScope(
       onWillPop: () async {
-        if ((globalSelectedID.value["Subscriptions"] ?? []).length > 0) {
-          globalSelectedID.value["Subscriptions"] = [];
+        if ((globalSelectedID.value[pageId] ?? []).length > 0) {
+          globalSelectedID.value[pageId] = [];
           globalSelectedID.notifyListeners();
           return false;
         } else {
@@ -65,7 +66,7 @@ class SubscriptionsPageState extends State<SubscriptionsPage> {
       },
       child: PageFramework(
         key: pageState,
-        listID: "Subscriptions",
+        listID: pageId,
         floatingActionButton: AnimateFABDelayed(
           fab: AddFAB(
             tooltip: "add-subscription".tr(),
@@ -86,8 +87,8 @@ class SubscriptionsPageState extends State<SubscriptionsPage> {
                 id: "settings",
                 label: "settings".tr(),
                 icon: appStateSettings["outlinedIcons"]
-                    ? Icons.settings_outlined
-                    : Icons.settings_rounded,
+                    ? Icons.more_vert_outlined
+                    : Icons.more_vert_rounded,
                 action: () {
                   openBottomSheet(
                     context,
@@ -155,8 +156,12 @@ class SubscriptionsPageState extends State<SubscriptionsPage> {
                                   RoutesToPopAfterDelete.One,
                             ),
                             transaction: transaction,
-                            listID: "Subscriptions",
+                            listID: pageId,
                           ),
+                          if (index == (snapshot.data?.length ?? 0) - 1)
+                            HorizontalBreak(
+                                padding: EdgeInsetsDirectional.only(
+                                    top: 4, bottom: 6)),
                         ],
                       );
                     },
@@ -171,7 +176,7 @@ class SubscriptionsPageState extends State<SubscriptionsPage> {
           SliverToBoxAdapter(child: SizedBox(height: 55)),
         ],
         selectedTransactionsAppBar: SelectedTransactionsAppBar(
-          pageID: "Subscriptions",
+          pageID: pageId,
         ),
       ),
     );
@@ -193,9 +198,7 @@ class UpcomingTransactionDateHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     int daysDifference =
-        DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)
-            .difference(transaction.dateCreated)
-            .inDays;
+        DateTime.now().justDay().difference(transaction.dateCreated).inDays;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -389,6 +392,7 @@ class TotalUpcomingHeaderPeriodSwitcher extends StatelessWidget {
           Padding(
             padding: EdgeInsetsDirectional.only(top: 5),
             child: AnimatedSizeSwitcher(
+              clipBehavior: Clip.none,
               child: TextFont(
                 key: ValueKey(selectedType.toString()),
                 text: selectedSubtitleTranslation(selectedType),

@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/main.dart';
 import 'package:budget/pages/accountsPage.dart';
@@ -17,7 +16,7 @@ import 'package:budget/widgets/navigationSidebar.dart';
 import 'package:budget/widgets/openBottomSheet.dart';
 import 'package:budget/widgets/openPopup.dart';
 import 'package:budget/widgets/framework/pageFramework.dart';
-import 'package:budget/widgets/outlinedButtonStacked.dart';
+import 'package:budget/widgets/ratingPopup.dart';
 import 'package:budget/widgets/showChangelog.dart';
 import 'package:budget/widgets/tappable.dart';
 import 'package:budget/widgets/textWidgets.dart';
@@ -25,12 +24,16 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:budget/colors.dart';
-import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
-class AboutPage extends StatelessWidget {
+class AboutPage extends StatefulWidget {
   const AboutPage({Key? key}) : super(key: key);
 
+  @override
+  State<AboutPage> createState() => AboutPageState();
+}
+
+class AboutPageState extends State<AboutPage> {
   @override
   Widget build(BuildContext context) {
     bool fullScreenLayout = enableDoubleColumn(context);
@@ -252,27 +255,48 @@ class AboutPage extends StatelessWidget {
     List<Widget> translators = [
       TranslationInfoBox(
         title: "Italian",
-        list: ["Thomas B.", "Mattia A."],
+        list: [
+          "Thomas B.",
+          "Mattia A.",
+        ],
       ),
       TranslationInfoBox(
         title: "Polish",
-        list: ["Michał S.", "Michał P."],
+        list: [
+          "Michał S.",
+          "Michał P.",
+          "Kaczusia",
+        ],
       ),
       TranslationInfoBox(
         title: "Serbian",
-        list: ["Jovan P."],
+        list: [
+          "Jovan P.",
+        ],
       ),
       TranslationInfoBox(
         title: "Swahili",
-        list: ["Anthony K."],
+        list: [
+          "Anthony K.",
+        ],
       ),
       TranslationInfoBox(
         title: "German",
-        list: ["Fabian S.", "Christian R.", "Samuel R."],
+        list: [
+          "Fabian S.",
+          "Christian R.",
+          "Samuel R.",
+          "Bettina S.",
+        ],
       ),
       TranslationInfoBox(
         title: "Arabic",
-        list: ["Dorra Y."],
+        list: [
+          "Dorra Y.",
+          "Ammar N.",
+          "Hussain A.",
+          "Mahmoud E.",
+        ],
       ),
       TranslationInfoBox(
         title: "Portuguese",
@@ -282,126 +306,211 @@ class AboutPage extends StatelessWidget {
           "João P.",
           "Junior M.",
           "Leandro",
-          "Xavier B."
+          "Xavier B.",
         ],
       ),
       TranslationInfoBox(
         title: "Bulgarian",
-        list: ["Денислав C."],
+        list: [
+          "Денислав C.",
+        ],
       ),
       TranslationInfoBox(
         title: "Chinese (Simplified)",
-        list: ["Clyde"],
+        list: [
+          "Clyde",
+        ],
       ),
       TranslationInfoBox(
         title: "Chinese (Traditional)",
-        list: ["qazlll456"],
+        list: [
+          "qazlll456",
+        ],
       ),
       TranslationInfoBox(
         title: "Hindi",
-        list: ["Dikshant S.", "Nikunj K.", "Darshan L."],
+        list: [
+          "Dikshant S.",
+          "Nikunj K.",
+          "Darshan L.",
+        ],
       ),
       TranslationInfoBox(
         title: "Vietnamese",
-        list: ["Ng. Anh"],
+        list: [
+          "Ng. Anh",
+        ],
       ),
       TranslationInfoBox(
         title: "French",
-        list: ["Antoine C.", "Fabien H."],
+        list: [
+          "Antoine C.",
+          "Fabien H.",
+          "Samuel S.",
+        ],
       ),
       TranslationInfoBox(
         title: "Indonesian",
-        list: ["Gusairi P."],
+        list: [
+          "Gusairi P.",
+        ],
       ),
       TranslationInfoBox(
         title: "Ukrainian",
-        list: ["Chris M.", "Yurii S."],
+        list: [
+          "Chris M.",
+          "Yurii S.",
+          "Mariia",
+        ],
       ),
       TranslationInfoBox(
         title: "Russian",
-        list: ["Ilya A.", "Konstantin B.", "Dennis Q"],
+        list: [
+          "Ilya A.",
+          "Konstantin B.",
+          "Dennis Q",
+          "Innokentii B.",
+        ],
       ),
       TranslationInfoBox(
         title: "Romanian",
-        list: ["Valentin G."],
+        list: [
+          "Valentin G.",
+          "Tarciziu",
+        ],
       ),
       TranslationInfoBox(
         title: "Spanish",
-        list: ["Pablo S.", "Gonzalo R.", "Ramon M."],
+        list: [
+          "Pablo S.",
+          "Gonzalo R.",
+          "Ramon M.",
+        ],
       ),
       TranslationInfoBox(
         title: "Swedish",
-        list: ["Anna M."],
+        list: [
+          "Anna M.",
+        ],
       ),
       TranslationInfoBox(
         title: "Danish",
-        list: ["Mittheo"],
+        list: [
+          "Mittheo",
+        ],
       ),
       TranslationInfoBox(
         title: "Turkish",
-        list: ["Serdar A."],
+        list: [
+          "Serdar A.",
+        ],
       ),
       TranslationInfoBox(
         title: "Slovak",
-        list: ["Igor V."],
+        list: [
+          "Igor V.",
+        ],
       ),
       TranslationInfoBox(
         title: "Macedonian",
-        list: ["Andrej A."],
-      ),
-      TranslationInfoBox(
-        title: "Arabic",
-        list: ["Ammar N."],
+        list: [
+          "Andrej A.",
+        ],
       ),
       TranslationInfoBox(
         title: "Czech",
-        list: ["Kamil T."],
+        list: [
+          "Kamil T.",
+          "Hana B.",
+        ],
       ),
       TranslationInfoBox(
         title: "Hebrew",
-        list: ["Happy Bear"],
+        list: [
+          "Happy Bear",
+        ],
       ),
       TranslationInfoBox(
         title: "Afrikaans",
-        list: ["Andrè B."],
+        list: [
+          "Andrè B.",
+        ],
       ),
       TranslationInfoBox(
         title: "Filipino",
-        list: ["Waren G."],
+        list: [
+          "Waren G.",
+        ],
       ),
       TranslationInfoBox(
         title: "Tamil",
-        list: ["Mohamed A."],
+        list: [
+          "Mohamed A.",
+        ],
       ),
       TranslationInfoBox(
         title: "Japanese",
-        list: ["Tetta N."],
+        list: [
+          "Tetta N.",
+        ],
       ),
       TranslationInfoBox(
         title: "Hungarian",
-        list: ["Döbröntei S."],
+        list: [
+          "Döbröntei S.",
+          "Myra S.",
+        ],
       ),
       TranslationInfoBox(
         title: "Thai",
-        list: ["Jateniphat U."],
+        list: [
+          "Jateniphat U.",
+        ],
       ),
       TranslationInfoBox(
         title: "Gujarati",
-        list: ["Darshan L."],
+        list: [
+          "Darshan L.",
+          "Harsh S.",
+        ],
+      ),
+      TranslationInfoBox(
+        title: "Finnish",
+        list: [
+          "Mirko J.",
+        ],
+      ),
+      TranslationInfoBox(
+        title: "Dutch",
+        list: [
+          "Niels S.",
+        ],
+      ),
+      TranslationInfoBox(
+        title: "Malay",
+        list: [
+          "アリフ",
+        ],
+      ),
+      TranslationInfoBox(
+        title: "Sinhala",
+        list: [
+          "Bhagya S.",
+        ],
       ),
     ];
-
-    double maxWidth = 900;
-    double widthOfScreen =
-        MediaQuery.sizeOf(context).width - getWidthNavigationSidebar(context);
-    double padding = enableDoubleColumn(context)
-        ? max(0, (widthOfScreen - maxWidth) / 2)
-        : getHorizontalPaddingConstrained(context);
 
     return PageFramework(
       dragDownToDismiss: true,
       title: "about".tr(),
-      horizontalPadding: padding,
+      getExtraHorizontalPadding: (context) {
+        double maxWidth = 900;
+        double widthOfScreen = MediaQuery.sizeOf(context).width -
+            getWidthNavigationSidebar(context);
+        return enableDoubleColumn(context)
+            ? max(0, (widthOfScreen - maxWidth) / 2)
+            : getHorizontalPaddingConstrained(context);
+      },
       sliversBefore: false,
       slivers: [
         SliverPadding(
@@ -615,7 +724,7 @@ void showChangelogForce(BuildContext context) {
       child: Button(
         label: "view-detailed-changelog".tr(),
         onTap: () {
-          Navigator.pop(context);
+          popRoute(context);
           pushRoute(context, DetailedChangelogPage());
         },
       ),
@@ -653,7 +762,7 @@ void deleteAllDataFlow(BuildContext context) {
         : Icons.warning_rounded,
     onExtraLabel2: "erase-synced-data-and-cloud-backups".tr(),
     onExtra2: () {
-      Navigator.pop(context);
+      popRoute(context);
       openBottomSheet(
         context,
         PopupFramework(
@@ -668,7 +777,7 @@ void deleteAllDataFlow(BuildContext context) {
                 ),
                 child: TextFont(
                   text: "erase-cloud-data-description".tr(),
-                  fontSize: 18,
+                  fontSize: 16.5,
                   textAlign: TextAlign.center,
                   maxLines: 10,
                 ),
@@ -678,7 +787,7 @@ void deleteAllDataFlow(BuildContext context) {
                   Expanded(
                     child: SyncCloudBackupButton(
                       onTap: () async {
-                        Navigator.pop(context);
+                        popRoute(context);
                         pushRoute(context, AccountsPage());
                       },
                     ),
@@ -687,7 +796,7 @@ void deleteAllDataFlow(BuildContext context) {
                   Expanded(
                     child: BackupsCloudBackupButton(
                       onTap: () async {
-                        Navigator.pop(context);
+                        popRoute(context);
                         pushRoute(context, AccountsPage());
                       },
                     ),
@@ -700,7 +809,7 @@ void deleteAllDataFlow(BuildContext context) {
       );
     },
     onSubmit: () async {
-      Navigator.pop(context);
+      popRoute(context);
       openPopup(
         context,
         title: "erase-everything-warning".tr(),
@@ -709,20 +818,20 @@ void deleteAllDataFlow(BuildContext context) {
             ? Icons.warning_amber_outlined
             : Icons.warning_amber_rounded,
         onSubmit: () async {
-          Navigator.pop(context);
+          popRoute(context);
           clearDatabase(context);
         },
         onSubmitLabel: "erase".tr(),
         onCancelLabel: "cancel".tr(),
         onCancel: () {
-          Navigator.pop(context);
+          popRoute(context);
         },
       );
     },
     onSubmitLabel: "erase".tr(),
     onCancelLabel: "cancel".tr(),
     onCancel: () {
-      Navigator.pop(context);
+      popRoute(context);
     },
   );
 }
@@ -759,6 +868,17 @@ class AboutLinks extends StatelessWidget {
                   ? Icons.live_help_outlined
                   : Icons.live_help_rounded,
               text: "guide-and-faq".tr(),
+            ),
+            const HorizontalBreak(padding: EdgeInsetsDirectional.zero),
+            _buildTappable(
+              context: context,
+              isExternalLink: false,
+              onTap: () =>
+                  openBottomSheet(context, RatingPopup(), fullSnap: true),
+              icon: appStateSettings["outlinedIcons"]
+                  ? Icons.rate_review_outlined
+                  : Icons.rate_review_rounded,
+              text: "feedback".tr(),
             ),
             const HorizontalBreak(padding: EdgeInsetsDirectional.zero),
             _buildTappable(
@@ -886,7 +1006,7 @@ Future clearDatabase(BuildContext context) async {
   openLoadingPopup(context);
   await Future.wait([database.deleteEverything(), sharedPreferences.clear()]);
   await database.close();
-  Navigator.pop(context);
+  popRoute(context);
   restartAppPopup(context);
 }
 

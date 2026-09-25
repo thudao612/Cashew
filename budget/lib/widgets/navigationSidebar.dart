@@ -142,6 +142,74 @@ class NavigationSidebarState extends State<NavigationSidebar> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           SizedBox(height: MediaQuery.paddingOf(context).top),
+                          Padding(
+                            padding: const EdgeInsetsDirectional.only(
+                              start: 20,
+                              end: 20,
+                              top: 8,
+                              bottom: 18,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF7C3AED),
+                                        Color(0xFFC026D3),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF7C3AED).withOpacity(0.35),
+                                        blurRadius: 12,
+                                        spreadRadius: 1,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.account_balance_wallet_rounded,
+                                    color: Color(0xFFF8FAFC),
+                                    size: 23,
+                                  ),
+                                ),
+
+                                const SizedBox(width: 12),
+
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "CASHEW",
+                                        style: TextStyle(
+                                          color: const Color(0xFFF8FAFC),
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        "PERSONAL FINANCE",
+                                        style: TextStyle(
+                                          color: const Color(0xFFA5B4FC),
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,6 +324,22 @@ class NavigationSidebarState extends State<NavigationSidebar> {
                                     ? 40
                                     : 0,
                               ),
+                              Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  start: 20,
+                                  bottom: 8,
+                                  top: 4,
+                                ),
+                                child: Text(
+                                  "MAIN",
+                                  style: TextStyle(
+                                    color: const Color(0xFFA5B4FC).withOpacity(0.65),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                              ),
                               NavigationSidebarButtonWithNavBarIconData(
                                 navBarIconDataKey: "home",
                                 currentPageIndex: selectedIndex,
@@ -263,6 +347,23 @@ class NavigationSidebarState extends State<NavigationSidebar> {
                               NavigationSidebarButtonWithNavBarIconData(
                                 navBarIconDataKey: "transactions",
                                 currentPageIndex: selectedIndex,
+                              ),
+                              const SizedBox(height: 12),
+
+                              Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  start: 20,
+                                  bottom: 8,
+                                ),
+                                child: Text(
+                                  "FINANCE",
+                                  style: TextStyle(
+                                    color: const Color(0xFFA5B4FC).withOpacity(0.65),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
                               ),
                               NavigationSidebarButtonWithNavBarIconData(
                                 navBarIconDataKey: "budgets",
@@ -289,6 +390,23 @@ class NavigationSidebarState extends State<NavigationSidebar> {
                               //     navBarIconDataKey: "notifications",
                               //     currentPageIndex: selectedIndex,
                               //   ),
+                              const SizedBox(height: 12),
+
+                              Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  start: 20,
+                                  bottom: 8,
+                                ),
+                                child: Text(
+                                  "ANALYTICS",
+                                  style: TextStyle(
+                                    color: const Color(0xFFA5B4FC).withOpacity(0.65),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                              ),
                               NavigationSidebarButtonWithNavBarIconData(
                                 navBarIconDataKey: "allSpending",
                                 currentPageIndex: selectedIndex,
@@ -607,8 +725,8 @@ class NavigationSidebarButton extends StatelessWidget {
       child: Icon(
         icon,
         color: isSelected
-            ? Theme.of(context).colorScheme.onSecondaryContainer
-            : Theme.of(context).colorScheme.secondary,
+            ? const Color(0xFFF8FAFC)
+            : const Color(0xFFA5B4FC),
       ),
     );
     return Padding(
@@ -622,7 +740,7 @@ class NavigationSidebarButton extends StatelessWidget {
           key: ValueKey(isSelected),
           borderRadius: getPlatform() == PlatformOS.isIOS ? 10 : 50,
           color: isSelected
-              ? Theme.of(context).colorScheme.secondaryContainer
+              ? const Color(0xFF7C3AED).withOpacity(0.28)
               : null,
           onTap: () {
             if (popRoutes) {
@@ -654,7 +772,10 @@ class NavigationSidebarButton extends StatelessWidget {
                         Expanded(
                           child: TextFont(
                             text: label.capitalizeFirst,
-                            fontSize: 16,
+                            fontSize: 14,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
                           ),
                         ),
                         trailing,

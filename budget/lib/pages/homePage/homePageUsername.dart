@@ -106,9 +106,9 @@ class HomePageUsername extends StatelessWidget {
 class HomePageWelcomeBannerSmall extends StatelessWidget {
   const HomePageWelcomeBannerSmall(
       {required this.showUsername,
-      required this.showGreeting,
-      required this.username,
-      super.key});
+        required this.showGreeting,
+        required this.username,
+        super.key});
   final bool showUsername;
   final bool showGreeting;
   final String username;
@@ -120,11 +120,10 @@ class HomePageWelcomeBannerSmall extends StatelessWidget {
       child: PartyHat(
         child: TextFont(
           text:
-              showGreeting && showUsername ? getWelcomeMessage() : "home".tr(),
+          showGreeting && showUsername ? getWelcomeMessage() : "home".tr(),
           fontWeight: FontWeight.bold,
           fontSize: getWidthNavigationSidebar(context) <= 0 ? 26 : 30,
           textColor: Theme.of(context).colorScheme.onPrimaryContainer,
-          //textColor: Theme.of(context).colorScheme.onSecondaryContainer,
         ),
       ),
     );

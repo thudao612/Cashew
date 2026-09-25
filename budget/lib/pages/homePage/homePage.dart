@@ -277,12 +277,19 @@ class HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       children: [
                         useSmallBanner
                             ? Expanded(
-                                child: HomePageWelcomeBannerSmall(
-                                  showUsername: showUsername,
-                                  showGreeting: showGreeting,
-                                  username: appStateSettings["username"] ?? "",
-                                ),
-                              )
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              HomePageWelcomeBannerSmall(
+                                showUsername: showUsername,
+                                showGreeting: showGreeting,
+                                username: appStateSettings["username"] ?? "",
+                              ),
+
+                            ],
+                          ),
+                        )
                             : SizedBox.shrink(),
                         Tooltip(
                           message: "edit-home".tr(),

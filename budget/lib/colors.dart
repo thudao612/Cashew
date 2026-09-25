@@ -48,76 +48,73 @@ AppColors getAppColors(
   return brightness == Brightness.light
       ? AppColors(
           colors: {
-            "white": Colors.white,
-            "black": Colors.black,
-            "textLight": appStateSettings["increaseTextContrast"]
-                ? Colors.black.withOpacity(0.7)
-                : appStateSettings["materialYou"]
-                    ? Colors.black.withOpacity(0.4)
-                    : Color(0xFF888888),
-            "lightDarkAccent": appStateSettings["materialYou"]
-                ? lightenPastel(accentColor, amount: 0.6)
-                : Color(0xFFF7F7F7),
-            "lightDarkAccentHeavyLight": lightDarkAccentHeavyLight,
-            "canvasContainer": const Color(0xFFEBEBEB),
-            "lightDarkAccentHeavy": Color(0xFFEBEBEB),
-            "shadowColor": const Color(0x655A5A5A),
-            "shadowColorLight": const Color(0x2D5A5A5A),
-            "unPaidUpcoming": Color(0xFF58A4C2),
-            "unPaidOverdue": Color(0xFF6577E0),
-            "incomeAmount": Color(0xFF59A849),
-            "expenseAmount": Color(0xFFCA5A5A),
-            "warningOrange": Color(0xFFCA995A),
-            "starYellow": Color(0xFFFFD723),
-            "dividerColor": appStateSettings["materialYou"]
-                ? Color(0x0F000000)
-                : Color(0xFFF0F0F0),
-            "standardContainerColor": getPlatform() == PlatformOS.isIOS
-                ? themeData.canvasColor
-                : appStateSettings["materialYou"]
-                    ? lightenPastel(
-                        themeData.colorScheme.secondaryContainer,
-                        amount: 0.3,
-                      )
-                    : lightDarkAccentHeavyLight,
+            "white": const Color(0xFF0F1020),
+            "black": const Color(0xFFF8FAFC),
+            "textLight": const Color(0xFFC4B5FD),
+
+            "lightDarkAccent": const Color(0xFF181A2F),
+
+            "lightDarkAccentHeavyLight": const Color(0xFF181A2F),
+
+            "canvasContainer": const Color(0xFF0F1020),
+
+            "lightDarkAccentHeavy": const Color(0xFF22243A),
+
+            "shadowColor": const Color(0x557C3AED),
+
+            "shadowColorLight": const Color(0x337C3AED),
+
+            "unPaidUpcoming": const Color(0xFF60A5FA),
+
+            "unPaidOverdue": const Color(0xFFA78BFA),
+
+            "incomeAmount": const Color(0xFF22C55E),
+
+            "expenseAmount": const Color(0xFFFB7185),
+
+            "warningOrange": const Color(0xFFFBBF24),
+
+            "starYellow": const Color(0xFFFDE047),
+
+            "dividerColor": const Color(0x3330324D),
+
+            "standardContainerColor": const Color(0xFF181A2F),
           },
         )
       : AppColors(
           colors: {
-            "white": Colors.black,
-            "black": Colors.white,
-            "textLight": appStateSettings["increaseTextContrast"]
-                ? Colors.white.withOpacity(0.65)
-                : appStateSettings["materialYou"]
-                    ? Colors.white.withOpacity(0.25)
-                    : Color(0xFF494949),
-            "lightDarkAccent": appStateSettings["materialYou"]
-                ? darkenPastel(accentColor, amount: 0.83)
-                : Color(0xFF161616),
-            "lightDarkAccentHeavyLight": lightDarkAccentHeavyLight,
-            "canvasContainer": const Color(0xFF242424),
-            "lightDarkAccentHeavy": const Color(0xFF444444),
-            "shadowColor": const Color(0x69BDBDBD),
-            "shadowColorLight": appStateSettings["materialYou"]
-                ? Colors.transparent
-                : Color(0x28747474),
-            "unPaidUpcoming": Color(0xFF7DB6CC),
-            "unPaidOverdue": Color(0xFF8395FF),
-            "incomeAmount": Color(0xFF62CA77),
-            "expenseAmount": Color(0xFFDA7272),
-            "warningOrange": Color(0xFFDA9C72),
-            "starYellow": Colors.yellow,
-            "dividerColor": appStateSettings["materialYou"]
-                ? Color(0x13FFFFFF)
-                : Color(0xFF161616),
-            "standardContainerColor": getPlatform() == PlatformOS.isIOS
-                ? themeData.canvasColor
-                : appStateSettings["materialYou"]
-                    ? darkenPastel(
-                        themeData.colorScheme.secondaryContainer,
-                        amount: 0.6,
-                      )
-                    : lightDarkAccentHeavyLight,
+            "white": const Color(0xFFF8FAFC),
+            "black": const Color(0xFF0F1020),
+
+            "textLight": const Color(0xFFA5B4FC),
+
+            "lightDarkAccent": const Color(0xFF181A2F),
+
+            "lightDarkAccentHeavyLight": const Color(0xFF181A2F),
+
+            "canvasContainer": const Color(0xFF0F1020),
+
+            "lightDarkAccentHeavy": const Color(0xFF22243A),
+
+            "shadowColor": const Color(0x557C3AED),
+
+            "shadowColorLight": const Color(0x337C3AED),
+
+            "unPaidUpcoming": const Color(0xFF60A5FA),
+
+            "unPaidOverdue": const Color(0xFFA78BFA),
+
+            "incomeAmount": const Color(0xFF22C55E),
+
+            "expenseAmount": const Color(0xFFFB7185),
+
+            "warningOrange": const Color(0xFFFBBF24),
+
+            "starYellow": const Color(0xFFFDE047),
+
+            "dividerColor": const Color(0x3330324D),
+
+            "standardContainerColor": const Color(0xFF181A2F),
           },
         );
 }
@@ -368,28 +365,12 @@ bool supportsSystemColor() {
 }
 
 ColorScheme getColorScheme(Brightness brightness) {
-  if (brightness == Brightness.light) {
-    return ColorScheme.fromSeed(
-      seedColor: getSettingConstants(appStateSettings)["accentColor"],
-      brightness: Brightness.light,
-      background: appStateSettings["materialYou"]
-          ? lightenPastel(getSettingConstants(appStateSettings)["accentColor"],
-              amount: 0.91)
-          : Colors.white,
-    );
-  } else {
-    return ColorScheme.fromSeed(
-      seedColor: getSettingConstants(appStateSettings)["accentColor"],
-      brightness: Brightness.dark,
-      background: appStateSettings["forceFullDarkBackground"] == true
-          ? Colors.black
-          : appStateSettings["materialYou"]
-              ? darkenPastel(
-                  getSettingConstants(appStateSettings)["accentColor"],
-                  amount: 0.92)
-              : Colors.black,
-    );
-  }
+  return ColorScheme.fromSeed(
+    seedColor: const Color(0xFF7C3AED),
+    brightness: Brightness.dark,
+    surface: const Color(0xFF181A2F),
+    background: const Color(0xFF0F1020),
+  );
 }
 
 SystemUiOverlayStyle getSystemUiOverlayStyle(
@@ -510,16 +491,15 @@ ThemeData getLightTheme() {
     //       : ZoomPageTransitionsBuilder(),
     //   TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
     // }),
-    fontFamily: appStateSettings["font"],
+    fontFamily: 'DMSans',
     fontFamilyFallback: ['Inter'],
     colorScheme: getColorScheme(brightness),
     useMaterial3: true,
+    scaffoldBackgroundColor: const Color(0xFF0F1020),
+    cardColor: const Color(0xFF181A2F),
     applyElevationOverlayColor: false,
     typography: Typography.material2014(),
-    canvasColor: appStateSettings["materialYou"]
-        ? lightenPastel(getSettingConstants(appStateSettings)["accentColor"],
-            amount: 0.91)
-        : Colors.white,
+    canvasColor: const Color(0xFF0F1020),
     splashColor: getPlatform() == PlatformOS.isIOS
         ? Colors.transparent
         : appStateSettings["materialYou"]
@@ -548,17 +528,12 @@ ThemeData getDarkTheme() {
     //       : ZoomPageTransitionsBuilder(),
     //   TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
     // }),
-    fontFamily: appStateSettings["font"],
+    fontFamily: 'DMSans',
     fontFamilyFallback: ['Inter'],
     colorScheme: getColorScheme(brightness),
     useMaterial3: true,
     typography: Typography.material2014(),
-    canvasColor: appStateSettings["forceFullDarkBackground"] == true
-        ? Colors.black
-        : appStateSettings["materialYou"]
-            ? darkenPastel(getSettingConstants(appStateSettings)["accentColor"],
-                amount: 0.92)
-            : Colors.black,
+    canvasColor: const Color(0xFF0F1020),
     splashColor: getPlatform() == PlatformOS.isIOS
         ? Colors.transparent
         : appStateSettings["materialYou"]
